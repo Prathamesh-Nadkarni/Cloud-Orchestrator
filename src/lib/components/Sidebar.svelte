@@ -60,7 +60,8 @@
       color: 'var(--accent-avx)',
       resources: [
         { type: 'transit', label: 'Transit Gateway', icon: Globe },
-        { type: 'spoke', label: 'Spoke Gateway', icon: GitBranch }
+        { type: 'spoke', label: 'Spoke Gateway', icon: GitBranch },
+        { type: 'firewall', label: 'Firenet', icon: Shield }
       ]
     },
     {
@@ -70,12 +71,6 @@
       resources: [
         { type: 'internet', label: 'Internet (0.0.0.0/0)', icon: Globe },
         { type: 'onprem', label: 'On-Premise Datacenter', icon: Server }
-      ]
-    }
-      resources: [
-        { type: 'transit', label: 'Transit Gateway', icon: Globe },
-        { type: 'spoke', label: 'Spoke Gateway', icon: GitBranch },
-        { type: 'firewall', label: 'Firenet', icon: Shield }
       ]
     }
   ];

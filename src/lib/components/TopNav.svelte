@@ -1,60 +1,73 @@
-```
-  import { Network, Play, Download, Copy, Check, Save, Upload, FileUp, FileDown, Image, LayoutTemplate } from 'lucide-svelte';
-  import { toPng } from 'html-to-image';
+<script>
+<script>
+  import {
+    Network,
+    Play,
+    Download,
+    Copy,
+    Check,
+    Save,
+    Upload,
+    FileUp,
+    FileDown,
+    Image,
+    LayoutTemplate,
+  } from "lucide-svelte";
+  import { toPng } from "html-to-image";
 
   let { nodes = $bindable(), edges = $bindable() } = $props();
   let isGenerating = $state(false);
   let showResult = $state(false);
-  let generatedCode = $state('');
-  let generatedK8s = $state('');
-  let activeTab = $state('terraform');
+  let generatedCode = $state("");
+  let generatedK8s = $state("");
+  let activeTab = $state("terraform");
   let copied = $state(false);
 
   let estimatedCost = $derived(
     nodes.reduce((acc, node) => {
       let nodeCost = 0;
-      if (node.data.type === 'compute' || node.data.type === 'kubernetes') {
-         if (node.data.size?.includes('micro')) nodeCost += 8;
-         else if (node.data.size?.includes('small')) nodeCost += 16;
-         else if (node.data.size?.includes('medium')) nodeCost += 32;
-         else if (node.data.size?.includes('large')) nodeCost += 64;
-         else if (node.data.size?.includes('xlarge')) nodeCost += 128;
-         else nodeCost += 20;
+      if (node.data.type === "compute" || node.data.type === "kubernetes") {
+        if (node.data.size?.includes("micro")) nodeCost += 8;
+        else if (node.data.size?.includes("small")) nodeCost += 16;
+        else if (node.data.size?.includes("medium")) nodeCost += 32;
+        else if (node.data.size?.includes("large")) nodeCost += 64;
+        else if (node.data.size?.includes("xlarge")) nodeCost += 128;
+        else nodeCost += 20;
 
-         if (node.data.type === 'kubernetes') {
-            nodeCost = nodeCost * (node.data.count || 3);
-            nodeCost += 73; // Control plane flat fee
-         }
+        if (node.data.type === "kubernetes") {
+          nodeCost = nodeCost * (node.data.count || 3);
+          nodeCost += 73; // Control plane flat fee
+        }
       }
-      
+
       if (node.data.disk) {
-         nodeCost += (node.data.disk * 0.10); // $0.10 / GB
+        nodeCost += node.data.disk * 0.1; // $0.10 / GB
       }
 
       return acc + nodeCost;
-    }, 0)
+    }, 0),
   );
 
   async function handleGenerate() {
     isGenerating = true;
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes, edges })
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes, edges }),
       });
-      
+
       const data = await response.json();
       if (data.code) {
         generatedCode = data.code;
-        generatedK8s = data.k8s || '';
-        activeTab = 'terraform';
+        generatedK8s = data.k8s || "";
+        activeTab = "terraform";
         showResult = true;
       } else {
-        alert('Failed to generate code: ' + (data.error || 'Unknown error'));
+        alert("Failed to generate code: " + (data.error || "Unknown error"));
       }
     } catch (err) {
-      alert('Error connecting to the generation API.');
+      alert("Error connecting to the generation API.");
     } finally {
       isGenerating = false;
     }
@@ -66,17 +79,19 @@
   }
 
   function copyCode() {
-    navigator.clipboard.writeText(activeTab === 'terraform' ? generatedCode : generatedK8s);
+    navigator.clipboard.writeText(
+      activeTab === "terraform" ? generatedCode : generatedK8s,
+    );
     copied = true;
-    setTimeout(() => copied = false, 2000);
+    setTimeout(() => (copied = false), 2000);
   }
 
   function downloadCode() {
-    const code = activeTab === 'terraform' ? generatedCode : generatedK8s;
-    const filename = activeTab === 'terraform' ? 'main.tf' : 'k8s.yaml';
-    const blob = new Blob([code], { type: 'text/plain' });
+    const code = activeTab === "terraform" ? generatedCode : generatedK8s;
+    const filename = activeTab === "terraform" ? "main.tf" : "k8s.yaml";
+    const blob = new Blob([code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -87,32 +102,32 @@
 
   function saveLayout() {
     const layout = JSON.stringify({ nodes, edges });
-    localStorage.setItem('multicloud-layout', layout);
-    alert('Layout saved to local storage!');
+    localStorage.setItem("multicloud-layout", layout);
+    alert("Layout saved to local storage!");
   }
 
   function loadLayout() {
-    const layoutStr = localStorage.getItem('multicloud-layout');
+    const layoutStr = localStorage.getItem("multicloud-layout");
     if (layoutStr) {
       try {
         const layout = JSON.parse(layoutStr);
         nodes = layout.nodes || [];
         edges = layout.edges || [];
       } catch (e) {
-        alert('Failed to parse saved layout.');
+        alert("Failed to parse saved layout.");
       }
     } else {
-      alert('No saved layout found.');
+      alert("No saved layout found.");
     }
   }
 
   function exportLayout() {
     const layout = JSON.stringify({ nodes, edges }, null, 2);
-    const blob = new Blob([layout], { type: 'application/json' });
+    const blob = new Blob([layout], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'architecture.json';
+    a.download = "architecture.json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -129,7 +144,7 @@
         nodes = layout.nodes || [];
         edges = layout.edges || [];
       } catch (err) {
-        alert('Failed to import layout: Invalid JSON.');
+        alert("Failed to import layout: Invalid JSON.");
       }
       event.target.value = null;
     };
@@ -137,39 +152,144 @@
   }
 
   function downloadImage() {
-    const target = document.querySelector('.svelte-flow');
+    const target = document.querySelector(".svelte-flow");
     if (!target) return;
-    toPng(target, { backgroundColor: '#0f1115' })
+    toPng(target, { backgroundColor: "#0f1115" })
       .then((dataUrl) => {
-        const a = document.createElement('a');
-        a.download = 'infrastructure-diagram.png';
+        const a = document.createElement("a");
+        a.download = "infrastructure-diagram.png";
         a.href = dataUrl;
         a.click();
       })
       .catch((err) => {
-        console.error('Failed to export image', err);
-        alert('Failed to export PNG.');
+        console.error("Failed to export image", err);
+        alert("Failed to export PNG.");
       });
   }
 
   function loadTemplate() {
-    if (confirm('Load 3-Tier Web App template? This will replace your current canvas setup.')) {
+    if (
+      confirm(
+        "Load 3-Tier Web App template? This will replace your current canvas setup.",
+      )
+    ) {
       nodes = [
-        { id: 'aws-vpc-1', type: 'cloud', position: { x: 200, y: 150 }, data: { provider: 'aws', type: 'vpc', label: 'Production VPC', cidr: '10.0.0.0/16' } },
-        { id: 'external-internet-1', type: 'cloud', position: { x: 450, y: -20 }, data: { provider: 'external', type: 'internet', label: 'Internet (0.0.0.0/0)' } },
-        
-        { id: 'aws-subnet-1', type: 'cloud', position: { x: 40, y: 80 }, data: { provider: 'aws', type: 'subnet', label: 'Public Subnet', cidr: '10.0.1.0/24' }, parentNode: 'aws-vpc-1' },
-        { id: 'aws-subnet-2', type: 'cloud', position: { x: 300, y: 80 }, data: { provider: 'aws', type: 'subnet', label: 'Private Subnet', cidr: '10.0.2.0/24' }, parentNode: 'aws-vpc-1' },
-        { id: 'aws-subnet-3', type: 'cloud', position: { x: 560, y: 80 }, data: { provider: 'aws', type: 'subnet', label: 'Data Subnet', cidr: '10.0.3.0/24' }, parentNode: 'aws-vpc-1' },
-        
-        { id: 'aws-compute-1', type: 'cloud', position: { x: 20, y: 80 }, data: { provider: 'aws', type: 'compute', label: 'Web Server', size: 't3.small' }, parentNode: 'aws-subnet-1' },
-        { id: 'aws-compute-2', type: 'cloud', position: { x: 20, y: 80 }, data: { provider: 'aws', type: 'compute', label: 'App Server', size: 't3.large' }, parentNode: 'aws-subnet-2' },
-        { id: 'aws-storage-1', type: 'cloud', position: { x: 20, y: 80 }, data: { provider: 'aws', type: 'storage', label: 'RDS Database' }, parentNode: 'aws-subnet-3' }
+        {
+          id: "aws-vpc-1",
+          type: "cloud",
+          position: { x: 200, y: 150 },
+          data: {
+            provider: "aws",
+            type: "vpc",
+            label: "Production VPC",
+            cidr: "10.0.0.0/16",
+          },
+        },
+        {
+          id: "external-internet-1",
+          type: "cloud",
+          position: { x: 450, y: -20 },
+          data: {
+            provider: "external",
+            type: "internet",
+            label: "Internet (0.0.0.0/0)",
+          },
+        },
+
+        {
+          id: "aws-subnet-1",
+          type: "cloud",
+          position: { x: 40, y: 80 },
+          data: {
+            provider: "aws",
+            type: "subnet",
+            label: "Public Subnet",
+            cidr: "10.0.1.0/24",
+          },
+          parentNode: "aws-vpc-1",
+        },
+        {
+          id: "aws-subnet-2",
+          type: "cloud",
+          position: { x: 300, y: 80 },
+          data: {
+            provider: "aws",
+            type: "subnet",
+            label: "Private Subnet",
+            cidr: "10.0.2.0/24",
+          },
+          parentNode: "aws-vpc-1",
+        },
+        {
+          id: "aws-subnet-3",
+          type: "cloud",
+          position: { x: 560, y: 80 },
+          data: {
+            provider: "aws",
+            type: "subnet",
+            label: "Data Subnet",
+            cidr: "10.0.3.0/24",
+          },
+          parentNode: "aws-vpc-1",
+        },
+
+        {
+          id: "aws-compute-1",
+          type: "cloud",
+          position: { x: 20, y: 80 },
+          data: {
+            provider: "aws",
+            type: "compute",
+            label: "Web Server",
+            size: "t3.small",
+          },
+          parentNode: "aws-subnet-1",
+        },
+        {
+          id: "aws-compute-2",
+          type: "cloud",
+          position: { x: 20, y: 80 },
+          data: {
+            provider: "aws",
+            type: "compute",
+            label: "App Server",
+            size: "t3.large",
+          },
+          parentNode: "aws-subnet-2",
+        },
+        {
+          id: "aws-storage-1",
+          type: "cloud",
+          position: { x: 20, y: 80 },
+          data: { provider: "aws", type: "storage", label: "RDS Database" },
+          parentNode: "aws-subnet-3",
+        },
       ];
       edges = [
-        { id: 'edge-1', source: 'external-internet-1', target: 'aws-compute-1', data: { protocol: 'https', port: '443' }, style: "stroke: #10b981; stroke-width: 2;", animated: true },
-        { id: 'edge-2', source: 'aws-compute-1', target: 'aws-compute-2', data: { protocol: 'tcp', port: '8080' }, style: "stroke: #f59e0b; stroke-width: 2;", animated: true },
-        { id: 'edge-3', source: 'aws-compute-2', target: 'aws-storage-1', data: { protocol: 'tcp', port: '3306' }, style: "stroke: #f59e0b; stroke-width: 2;", animated: true }
+        {
+          id: "edge-1",
+          source: "external-internet-1",
+          target: "aws-compute-1",
+          data: { protocol: "https", port: "443" },
+          style: "stroke: #10b981; stroke-width: 2;",
+          animated: true,
+        },
+        {
+          id: "edge-2",
+          source: "aws-compute-1",
+          target: "aws-compute-2",
+          data: { protocol: "tcp", port: "8080" },
+          style: "stroke: #f59e0b; stroke-width: 2;",
+          animated: true,
+        },
+        {
+          id: "edge-3",
+          source: "aws-compute-2",
+          target: "aws-storage-1",
+          data: { protocol: "tcp", port: "3306" },
+          style: "stroke: #f59e0b; stroke-width: 2;",
+          animated: true,
+        },
       ];
     }
   }
@@ -180,17 +300,22 @@
     <div class="logo-icon">
       <Network size={20} color="var(--accent-primary)" />
     </div>
-    <span class="title">MultiCloud <span class="highlight">Designer</span></span>
-    
+    <span class="title">MultiCloud <span class="highlight">Designer</span></span
+    >
+
     {#if estimatedCost > 0}
-       <div class="cost-badge" title="Estimated Monthly Runtime Cost">
-          ~${estimatedCost.toFixed(2)} / mo
-       </div>
+      <div class="cost-badge" title="Estimated Monthly Runtime Cost">
+        ~${estimatedCost.toFixed(2)} / mo
+      </div>
     {/if}
   </div>
 
   <div class="actions">
-    <button class="action-btn" onclick={loadTemplate} title="Load 3-Tier App Blueprint">
+    <button
+      class="action-btn"
+      onclick={loadTemplate}
+      title="Load 3-Tier App Blueprint"
+    >
       <LayoutTemplate size={16} /> Template
     </button>
     <div class="divider"></div>
@@ -211,7 +336,11 @@
       <Image size={16} /> PNG
     </button>
 
-    <button class="generate-btn" onclick={handleGenerate} disabled={isGenerating}>
+    <button
+      class="generate-btn"
+      onclick={handleGenerate}
+      disabled={isGenerating}
+    >
       {#if isGenerating}
         <div class="spinner"></div>
         Generating...
@@ -230,11 +359,19 @@
     <div class="modal-content glass-panel" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <div class="tabs">
-          <button class="tab-btn" class:active={activeTab === 'terraform'} onclick={() => activeTab = 'terraform'}>
+          <button
+            class="tab-btn"
+            class:active={activeTab === "terraform"}
+            onclick={() => (activeTab = "terraform")}
+          >
             Terraform (main.tf)
           </button>
           {#if generatedK8s}
-            <button class="tab-btn" class:active={activeTab === 'kubernetes'} onclick={() => activeTab = 'kubernetes'}>
+            <button
+              class="tab-btn"
+              class:active={activeTab === "kubernetes"}
+              onclick={() => (activeTab = "kubernetes")}
+            >
               Kubernetes (k8s.yaml)
             </button>
           {/if}
@@ -254,7 +391,9 @@
         </div>
       </div>
       <div class="code-container">
-        <pre><code>{activeTab === 'terraform' ? generatedCode : generatedK8s}</code></pre>
+        <pre><code
+            >{activeTab === "terraform" ? generatedCode : generatedK8s}</code
+          ></pre>
       </div>
     </div>
   </div>
@@ -319,7 +458,7 @@
     align-items: center;
     gap: 12px;
   }
-  
+
   .action-btn {
     display: flex;
     align-items: center;
@@ -390,7 +529,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Modal Styles */
@@ -496,7 +637,7 @@
 
   pre {
     margin: 0;
-    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    font-family: "Fira Code", "Courier New", Courier, monospace;
     font-size: 0.9rem;
     line-height: 1.5;
     color: #a8b2d1;

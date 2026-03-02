@@ -1,43 +1,111 @@
-<script>
-  import { Handle, Position } from '@xyflow/svelte';
-  import { Cloud, Server, Box, Globe, Shield, GitBranch, Lock, Container, Database, HardDrive, Cpu, Blocks, Network } from 'lucide-svelte';
+<script lang="ts">
+  import { Handle, Position, NodeResizer } from "@xyflow/svelte";
+  import {
+    Cloud,
+    Server,
+    Box,
+    Globe,
+    Shield,
+    GitBranch,
+    Lock,
+    Container,
+    Database,
+    HardDrive,
+    Cpu,
+    Blocks,
+    Network,
+  } from "lucide-svelte";
 
-  let { data, isConnectable } = $props();
+  let { data, isConnectable, selected } = $props<{
+    data: any;
+    isConnectable: boolean;
+    selected: boolean;
+  }>();
 
-  function getIcon(type) {
+  function getIcon(type: string) {
     switch (type) {
-      case 'vpc': return Cloud;
-      case 'vnet': return Cloud;
-      case 'subnet': return Box;
-      case 'compute': return Server;
-      case 'transit': return Globe;
-      case 'spoke': return GitBranch;
-      case 'firewall': return Shield;
-      case 'securityGroup': return Lock;
-      case 'networkGroup': return Lock;
-      case 'kubernetes': return Container;
-      case 'k8sNode': return Cpu;
-      case 'k8sPod': return Blocks;
-      case 'k8sService': return Network;
-      case 'storage': return Database;
-      case 'disk': return HardDrive;
-      case 'internet': return Globe;
-      case 'onprem': return Server;
-      default: return Box;
+      case "vpc":
+        return Cloud;
+      case "vnet":
+        return Cloud;
+      case "subnet":
+        return Box;
+      case "compute":
+        return Server;
+      case "transit":
+        return Globe;
+      case "spoke":
+        return GitBranch;
+      case "firewall":
+        return Shield;
+      case "securityGroup":
+        return Lock;
+      case "networkGroup":
+        return Lock;
+      case "kubernetes":
+        return Container;
+      case "k8sNode":
+        return Cpu;
+      case "k8sPod":
+        return Blocks;
+      case "k8sService":
+        return Network;
+      case "storage":
+        return Database;
+      case "disk":
+        return HardDrive;
+      case "internet":
+        return Globe;
+      case "onprem":
+        return Server;
+      default:
+        return Box;
     }
   }
+
+  let sizingLevel = $derived.by(() => {
+    const type = data.type;
+    if (["vpc", "vnet"].includes(type)) return 1;
+    if (["subnet", "kubernetes"].includes(type)) return 2;
+    if (["securityGroup", "networkGroup", "k8sNode"].includes(type)) return 3;
+    return 0;
+  });
 
   let Icon = $derived(getIcon(data.type));
 </script>
 
-<div class="cloud-node {['vpc', 'vnet', 'securityGroup', 'networkGroup', 'kubernetes', 'k8sNode'].includes(data.type) ? 'container-node' : ''}" class:selected={data.selected} style="--node-accent: var(--accent-{data.provider})">
-  <Handle 
-    type="target" 
-    position={Position.Left} 
-    isConnectable={isConnectable} 
+<div
+  class="cloud-node {sizingLevel > 0 ? 'container-node' : ''}"
+  class:selected
+  data-level={sizingLevel}
+  style="--node-accent: var(--accent-{data.provider})"
+>
+  <NodeResizer
+    isVisible={selected}
+    minWidth={sizingLevel === 1
+      ? 400
+      : sizingLevel === 2
+        ? 300
+        : sizingLevel === 3
+          ? 200
+          : 160}
+    minHeight={sizingLevel === 1
+      ? 300
+      : sizingLevel === 2
+        ? 200
+        : sizingLevel === 3
+          ? 120
+          : 80}
+    handleStyle="border: 1px solid var(--node-accent); background: white; width: 8px; height: 8px; border-radius: 2px;"
+    lineStyle="border-color: var(--node-accent); border-width: 1px;"
+  />
+  <Handle
+    type="target"
+    position={Position.Left}
+    {isConnectable}
     class="handle"
   />
-  
+
   <div class="node-header">
     <div class="node-icon">
       <Icon size={16} />
@@ -51,21 +119,27 @@
   {#if data.name || data.cidr || data.size}
     <div class="node-details">
       {#if data.name}
-        <div class="detail-row"><span class="key">Name:</span> <span class="val">{data.name}</span></div>
+        <div class="detail-row">
+          <span class="key">Name:</span> <span class="val">{data.name}</span>
+        </div>
       {/if}
       {#if data.cidr}
-        <div class="detail-row"><span class="key">CIDR:</span> <span class="val">{data.cidr}</span></div>
+        <div class="detail-row">
+          <span class="key">CIDR:</span> <span class="val">{data.cidr}</span>
+        </div>
       {/if}
       {#if data.size}
-        <div class="detail-row"><span class="key">Size:</span> <span class="val">{data.size}</span></div>
+        <div class="detail-row">
+          <span class="key">Size:</span> <span class="val">{data.size}</span>
+        </div>
       {/if}
     </div>
   {/if}
 
-  <Handle 
-    type="source" 
-    position={Position.Right} 
-    isConnectable={isConnectable} 
+  <Handle
+    type="source"
+    position={Position.Right}
+    {isConnectable}
     class="handle"
   />
 </div>
@@ -83,12 +157,30 @@
     font-family: var(--font-sans);
   }
 
-  /* Styling for VPC nested containers */
+  /* Styling for nested containers with relative sizing */
   .container-node {
-    min-width: 500px;
-    min-height: 400px;
     background: rgba(20, 22, 28, 0.3);
     border: 2px dashed rgba(255, 255, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Level 1: Root Containers (VPC/VNet) */
+  .cloud-node[data-level="1"] {
+    width: 800px;
+    height: 600px;
+  }
+
+  /* Level 2: Mid-tier Containers (Subnets/Clusters) */
+  .cloud-node[data-level="2"] {
+    width: 450px;
+    height: 350px;
+  }
+
+  /* Level 3: Small Containers (Security Groups / K8s Nodes) */
+  .cloud-node[data-level="3"] {
+    width: 250px;
+    height: 180px;
   }
 
   .cloud-node:hover {
@@ -99,7 +191,9 @@
   /* When the node is selected via svelte-flow */
   .cloud-node:global(.selected) {
     border-color: var(--node-accent);
-    box-shadow: 0 0 0 1px var(--node-accent), 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow:
+      0 0 0 1px var(--node-accent),
+      0 4px 20px rgba(0, 0, 0, 0.4);
   }
 
   .node-header {
@@ -161,7 +255,7 @@
 
   .val {
     color: var(--text-main);
-    font-family: 'Fira Code', monospace;
+    font-family: "Fira Code", monospace;
   }
 
   :global(.handle) {

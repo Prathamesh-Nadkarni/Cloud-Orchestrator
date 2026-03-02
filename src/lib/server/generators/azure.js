@@ -1,5 +1,6 @@
 export function generateAzure(nodes, edges = []) {
     let tf = `\n# --- Azure Resources ---\n`;
+    const azureNodes = nodes.filter(n => n.data.provider === 'azure' || (n.data.provider === 'kubernetes' && nodes.find(p => p.id === n.parentId)?.data.provider === 'azure'));
     let hasAzure = false;
 
     const getLocation = (n) => n.data.region || 'East US';
@@ -13,7 +14,7 @@ export function generateAzure(nodes, edges = []) {
             if (node.id !== nodeId && node.data.type === targetType) {
                 return node.data.name || node.id.replace(/-/g, '_');
             }
-            currentId = node.parentNode;
+            currentId = node.parentId;
         }
 
         const connectionEdges = edges.filter(e => e.source === nodeId || e.target === nodeId);
@@ -27,15 +28,15 @@ export function generateAzure(nodes, edges = []) {
         return null;
     };
 
-    if (nodes.length > 0) {
+    if (azureNodes.length > 0) {
         hasAzure = true;
         tf += `provider "azurerm" {\n  features {}\n}\n\n`;
         tf += `resource "azurerm_resource_group" "main" {\n`;
         tf += `  name     = "multicloud-rg"\n`;
-        tf += `  location = "${getLocation(nodes[0])}"\n}\n\n`;
+        tf += `  location = "${getLocation(azureNodes[0])}"\n}\n\n`;
     }
 
-    nodes.forEach(node => {
+    azureNodes.forEach(node => {
         const { id, data } = node;
         const name = data.name || id.replace(/-/g, '_');
 
@@ -88,7 +89,7 @@ export function generateAzure(nodes, edges = []) {
             tf += `  location            = azurerm_resource_group.main.location\n`;
             tf += `  resource_group_name = azurerm_resource_group.main.name\n`;
 
-            const sgChildren = nodes.filter(n => n.parentNode === id).map(n => n.id);
+            const sgChildren = nodes.filter(n => n.parentId === id).map(n => n.id);
             const relevantEdges = edges.filter(e => sgChildren.includes(e.source) || sgChildren.includes(e.target) || e.source === id || e.target === id);
 
             let ruleIndex = 100;

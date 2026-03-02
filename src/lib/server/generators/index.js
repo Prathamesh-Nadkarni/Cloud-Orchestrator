@@ -5,19 +5,28 @@ import { generateAviatrix } from './aviatrix.js';
 import { generateK8s } from './k8s.js';
 
 export function parseCanvas(nodes, edges) {
-    let terraformVars = `# --- Variables (Example) ---\n`;
-    terraformVars += `variable "aviatrix_controller_ip" { default = "x.x.x.x" }\n`;
-    terraformVars += `variable "aviatrix_username" { default = "admin" }\n`;
-    terraformVars += `variable "aviatrix_password" { default = "password" }\n\n`;
+    const hasCloudNodes = nodes.some(n =>
+        ['aws', 'azure', 'gcp', 'aviatrix'].includes(n.data.provider) ||
+        ['vpc', 'vnet', 'compute', 'storage', 'kubernetes'].includes(n.data.type)
+    );
 
-    const awsNodes = nodes.filter(n => n.data.provider === 'aws');
-    const azureNodes = nodes.filter(n => n.data.provider === 'azure');
-    const gcpNodes = nodes.filter(n => n.data.provider === 'gcp');
+    const hasK8sNodes = nodes.some(n =>
+        ['k8sPod', 'k8sService', 'k8sNode'].includes(n.data.type) ||
+        n.data.provider === 'kubernetes'
+    );
 
-    const awsCode = generateAWS(awsNodes, edges);
-    const azureCode = generateAzure(azureNodes, edges);
-    const gcpCode = generateGCP(gcpNodes, edges);
-    const avxCode = generateAviatrix(nodes, edges); // Pass all nodes as Aviatrix might oversee multicloud
+    let terraformVars = "";
+    if (hasCloudNodes) {
+        terraformVars = `# --- Variables (Example) ---\n`;
+        terraformVars += `variable "aviatrix_controller_ip" { default = "x.x.x.x" }\n`;
+        terraformVars += `variable "aviatrix_username" { default = "admin" }\n`;
+        terraformVars += `variable "aviatrix_password" { default = "password" }\n\n`;
+    }
+
+    const awsCode = generateAWS(nodes, edges);
+    const azureCode = generateAzure(nodes, edges);
+    const gcpCode = generateGCP(nodes, edges);
+    const avxCode = generateAviatrix(nodes, edges);
     const k8sCode = generateK8s(nodes, edges);
 
     let finalCode = terraformVars;
@@ -27,11 +36,14 @@ export function parseCanvas(nodes, edges) {
     if (avxCode) finalCode += avxCode;
 
     if (nodes.length === 0) {
-        finalCode = "# Canvas is empty. Drag and drop resources to generate Terraform code.";
+        finalCode = "# Canvas is empty. Drag and drop resources to generate code.";
+    } else if (!hasCloudNodes && hasK8sNodes) {
+        finalCode = ""; // No terraform if only k8s
     }
 
     return {
         terraform: finalCode,
-        kubernetes: k8sCode
+        kubernetes: k8sCode,
+        hasK8sOnly: !hasCloudNodes && hasK8sNodes
     };
 }

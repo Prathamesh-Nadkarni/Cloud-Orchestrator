@@ -1,5 +1,4 @@
-<script>
-<script>
+<script lang="ts">
   import {
     Network,
     Play,
@@ -12,8 +11,10 @@
     FileDown,
     Image,
     LayoutTemplate,
+    ChevronRight,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
+  import CostBreakdown from "./CostBreakdown.svelte";
 
   let { nodes = $bindable(), edges = $bindable() } = $props();
   let isGenerating = $state(false);
@@ -22,9 +23,10 @@
   let generatedK8s = $state("");
   let activeTab = $state("terraform");
   let copied = $state(false);
+  let showCostBreakdown = $state(false);
 
   let estimatedCost = $derived(
-    nodes.reduce((acc, node) => {
+    nodes.reduce((acc: number, node: any) => {
       let nodeCost = 0;
       if (node.data.type === "compute" || node.data.type === "kubernetes") {
         if (node.data.size?.includes("micro")) nodeCost += 8;
@@ -58,10 +60,10 @@
       });
 
       const data = await response.json();
-      if (data.code) {
-        generatedCode = data.code;
+      if (data.code || data.k8s) {
+        generatedCode = data.code || "";
         generatedK8s = data.k8s || "";
-        activeTab = "terraform";
+        activeTab = data.hasK8sOnly ? "kubernetes" : "terraform";
         showResult = true;
       } else {
         alert("Failed to generate code: " + (data.error || "Unknown error"));
@@ -134,13 +136,13 @@
     URL.revokeObjectURL(url);
   }
 
-  function importLayout(event) {
+  function importLayout(event: any) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const layout = JSON.parse(e.target.result);
+        const layout = JSON.parse((e.target as any).result);
         nodes = layout.nodes || [];
         edges = layout.edges || [];
       } catch (err) {
@@ -152,7 +154,7 @@
   }
 
   function downloadImage() {
-    const target = document.querySelector(".svelte-flow");
+    const target = document.querySelector(".svelte-flow") as HTMLElement;
     if (!target) return;
     toPng(target, { backgroundColor: "#0f1115" })
       .then((dataUrl) => {
@@ -206,7 +208,7 @@
             label: "Public Subnet",
             cidr: "10.0.1.0/24",
           },
-          parentNode: "aws-vpc-1",
+          parentId: "aws-vpc-1",
         },
         {
           id: "aws-subnet-2",
@@ -218,7 +220,7 @@
             label: "Private Subnet",
             cidr: "10.0.2.0/24",
           },
-          parentNode: "aws-vpc-1",
+          parentId: "aws-vpc-1",
         },
         {
           id: "aws-subnet-3",
@@ -230,7 +232,7 @@
             label: "Data Subnet",
             cidr: "10.0.3.0/24",
           },
-          parentNode: "aws-vpc-1",
+          parentId: "aws-vpc-1",
         },
 
         {
@@ -243,7 +245,7 @@
             label: "Web Server",
             size: "t3.small",
           },
-          parentNode: "aws-subnet-1",
+          parentId: "aws-subnet-1",
         },
         {
           id: "aws-compute-2",
@@ -255,14 +257,14 @@
             label: "App Server",
             size: "t3.large",
           },
-          parentNode: "aws-subnet-2",
+          parentId: "aws-subnet-2",
         },
         {
           id: "aws-storage-1",
           type: "cloud",
           position: { x: 20, y: 80 },
           data: { provider: "aws", type: "storage", label: "RDS Database" },
-          parentNode: "aws-subnet-3",
+          parentId: "aws-subnet-3",
         },
       ];
       edges = [
@@ -293,7 +295,14 @@
       ];
     }
   }
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      closeResult();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <nav class="top-nav glass-panel">
   <div class="brand">
@@ -304,11 +313,21 @@
     >
 
     {#if estimatedCost > 0}
-      <div class="cost-badge" title="Estimated Monthly Runtime Cost">
-        ~${estimatedCost.toFixed(2)} / mo
-      </div>
+      <button
+        class="cost-badge"
+        onclick={() => (showCostBreakdown = true)}
+        title="View Detailed Monthly Cost Breakdown"
+      >
+        <span class="cost-label">EST. COST:</span>
+        <span class="cost-amount">${estimatedCost.toFixed(2)} / mo</span>
+        <div class="cost-chevron">
+          <ChevronRight size={14} />
+        </div>
+      </button>
     {/if}
   </div>
+
+  <CostBreakdown bind:isOpen={showCostBreakdown} {nodes} />
 
   <div class="actions">
     <button
@@ -346,26 +365,38 @@
         Generating...
       {:else}
         <Play size={16} />
-        Generate Terraform
+        Generate Manifests
       {/if}
     </button>
   </div>
 </nav>
 
 {#if showResult}
-  <div class="modal-backdrop" onclick={closeResult}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal-content glass-panel" onclick={(e) => e.stopPropagation()}>
+  <div
+    class="modal-backdrop"
+    onclick={closeResult}
+    onkeydown={(e) => e.key === "Enter" && closeResult()}
+    role="button"
+    tabindex="0"
+    aria-label="Close modal"
+  >
+    <div
+      class="modal-content glass-panel"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="none"
+    >
       <div class="modal-header">
         <div class="tabs">
-          <button
-            class="tab-btn"
-            class:active={activeTab === "terraform"}
-            onclick={() => (activeTab = "terraform")}
-          >
-            Terraform (main.tf)
-          </button>
+          {#if generatedCode}
+            <button
+              class="tab-btn"
+              class:active={activeTab === "terraform"}
+              onclick={() => (activeTab = "terraform")}
+            >
+              Terraform (main.tf)
+            </button>
+          {/if}
           {#if generatedK8s}
             <button
               class="tab-btn"
@@ -442,15 +473,47 @@
   }
 
   .cost-badge {
-    margin-left: 16px;
-    padding: 4px 12px;
-    background: rgba(16, 185, 129, 0.1);
+    margin-left: 20px;
+    padding: 6px 12px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .cost-badge:hover {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .cost-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  .cost-amount {
+    font-size: 0.85rem;
+    font-weight: 700;
     color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.3px;
+  }
+
+  .cost-chevron {
+    color: rgba(16, 185, 129, 0.5);
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+  }
+
+  .cost-badge:hover .cost-chevron {
+    transform: translateX(2px);
+    color: #10b981;
   }
 
   .actions {

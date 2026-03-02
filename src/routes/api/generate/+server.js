@@ -8,7 +8,12 @@ export async function POST({ request }) {
         // Convert canvas nodes/edges to Terraform strings
         const generated = parseCanvas(nodes, edges);
 
-        return json({ success: true, code: generated.terraform, k8s: generated.kubernetes });
+        return json({
+            success: true,
+            code: generated.terraform,
+            k8s: generated.kubernetes,
+            hasK8sOnly: generated.hasK8sOnly
+        });
     } catch (error) {
         console.error('Code generation error:', error);
         return json({ success: false, error: 'Failed to generate code.' }, { status: 500 });

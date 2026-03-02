@@ -1,51 +1,108 @@
 <script>
-  import { Edit2, CopyMinus, Trash2, Link } from 'lucide-svelte';
+  import { Edit2, CopyMinus, Trash2, Link, X } from "lucide-svelte";
 
-  let { isOpen = $bindable(), position, node, onClose, onEdit, onDetach, onDelete, onAttach } = $props();
-
+  let {
+    isOpen = $bindable(),
+    position,
+    node,
+    onClose,
+    onEdit,
+    onDetach,
+    onDelete,
+    onAttach,
+  } = $props();
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 {#if isOpen && node}
-<div class="context-menu-backdrop" onclick={onClose} oncontextmenu={(e) => { e.preventDefault(); onClose(); }}>
-  <div 
-    class="context-menu glass-panel" 
-    style="left: {position.x}px; top: {position.y}px;"
-    onclick={(e) => e.stopPropagation()}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="context-menu-backdrop"
+    onclick={onClose}
+    onmousedown={(e) => {
+      if (e.button === 0) onClose(); // Close on left click
+    }}
+    oncontextmenu={(e) => {
+      e.preventDefault();
+      onClose();
+    }}
   >
-    <div class="menu-header">
-      <span class="provider-badge" style="color: var(--accent-{node.data.provider})">
-        {node.data.provider.toUpperCase()}
-      </span>
-      <span class="node-name">{node.data.label} (ID: {node.id.split('-').pop()})</span>
-    </div>
+    <div
+      class="context-menu glass-panel"
+      style="left: {position.x}px; top: {position.y}px;"
+      onclick={(e) => e.stopPropagation()}
+      onmousedown={(e) => e.stopPropagation()}
+      oncontextmenu={(e) => e.stopPropagation()}
+    >
+      <div class="menu-header">
+        <span
+          class="provider-badge"
+          style="color: var(--accent-{node.data.provider})"
+        >
+          {node.data.provider.toUpperCase()}
+        </span>
+        <span class="node-name"
+          >{node.data.label} (ID: {node.id.split("-").pop()})</span
+        >
+      </div>
 
-    <div class="menu-actions">
-      <button class="menu-item" onclick={() => { onEdit(node); onClose(); }}>
-        <Edit2 size={16} />
-        <span>Edit Properties</span>
-      </button>
+      <div class="menu-actions">
+        <button
+          class="menu-item"
+          onclick={() => {
+            onEdit(node);
+            onClose();
+          }}
+        >
+          <Edit2 size={16} />
+          <span>Edit Properties</span>
+        </button>
 
-      <button class="menu-item" onclick={() => { onAttach(node); onClose(); }}>
-        <Link size={16} />
-        <span>Attach To...</span>
-      </button>
+        <button
+          class="menu-item"
+          onclick={() => {
+            onAttach(node);
+            onClose();
+          }}
+        >
+          <Link size={16} />
+          <span>Attach To...</span>
+        </button>
 
-      <div class="divider"></div>
+        <div class="divider"></div>
 
-      <button class="menu-item text-warning" onclick={() => { onDetach(node); onClose(); }}>
-        <CopyMinus size={16} />
-        <span>Detach (Remove Edges)</span>
-      </button>
+        <button
+          class="menu-item text-warning"
+          onclick={() => {
+            onDetach(node);
+            onClose();
+          }}
+        >
+          <CopyMinus size={16} />
+          <span>Detach (Remove Edges)</span>
+        </button>
 
-      <button class="menu-item text-danger" onclick={() => { onDelete(node); onClose(); }}>
-        <Trash2 size={16} />
-        <span>Delete Resource</span>
-      </button>
+        <button
+          class="menu-item text-danger"
+          onclick={() => {
+            onDelete(node);
+            onClose();
+          }}
+        >
+          <Trash2 size={16} />
+          <span>Delete Resource</span>
+        </button>
+
+        <div class="divider"></div>
+
+        <button class="menu-item" onclick={onClose}>
+          <X size={16} />
+          <span>Cancel</span>
+        </button>
+      </div>
     </div>
   </div>
-</div>
+{/if}
 
 <style>
   .context-menu-backdrop {
@@ -72,8 +129,14 @@
   }
 
   @keyframes menu-pop {
-    0% { transform: scale(0.95); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 
   .menu-header {

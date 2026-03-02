@@ -1,5 +1,6 @@
 export function generateGCP(nodes, edges = []) {
     let tf = `\n# --- GCP Resources ---\n`;
+    const gcpNodes = nodes.filter(n => n.data.provider === 'gcp' || (n.data.provider === 'kubernetes' && nodes.find(p => p.id === n.parentId)?.data.provider === 'gcp'));
     let hasGCP = false;
 
     const getRegion = (n) => n.data.region || 'us-central1';
@@ -13,7 +14,7 @@ export function generateGCP(nodes, edges = []) {
             if (node.id !== nodeId && node.data.type === targetType) {
                 return node.data.name || node.id.replace(/-/g, '_');
             }
-            currentId = node.parentNode;
+            currentId = node.parentId;
         }
 
         const connectionEdges = edges.filter(e => e.source === nodeId || e.target === nodeId);
@@ -27,12 +28,12 @@ export function generateGCP(nodes, edges = []) {
         return null;
     };
 
-    if (nodes.length > 0) {
+    if (gcpNodes.length > 0) {
         hasGCP = true;
-        tf += `provider "google" {\n  project = "my-gcp-project"\n  region  = "${getRegion(nodes[0])}"\n}\n\n`;
+        tf += `provider "google" {\n  project = "my-gcp-project"\n  region  = "${getRegion(gcpNodes[0])}"\n}\n\n`;
     }
 
-    nodes.forEach(node => {
+    gcpNodes.forEach(node => {
         const { id, data } = node;
         const name = data.name || id.replace(/-/g, '_');
 
@@ -67,7 +68,7 @@ export function generateGCP(nodes, edges = []) {
             tf += `  name    = "${name.replace(/_/g, '-')}-fw"\n`;
             tf += `  network = google_compute_network.${vpcName}.name\n`;
 
-            const sgChildren = nodes.filter(n => n.parentNode === id).map(n => n.id);
+            const sgChildren = nodes.filter(n => n.parentId === id).map(n => n.id);
             const relevantEdges = edges.filter(e => sgChildren.includes(e.source) || sgChildren.includes(e.target) || e.source === id || e.target === id);
 
             let allowAdded = false;

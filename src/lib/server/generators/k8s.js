@@ -60,12 +60,10 @@ spec:
     }
   });
 
-  // Generate NetworkPolicies based on edges between pods
+  // Generate NetworkPolicies based on ALL ingress edges to pods
   const pods = k8sNodes.filter(n => n.data.type === 'k8sPod');
   pods.forEach(pod => {
     const podName = (pod.data.name || pod.type + '-' + pod.id.split('-').pop()).toLowerCase().replace(/_/g, '-');
-
-    // Find edges where this pod is the target (receiving traffic)
     const ingressEdges = edges.filter(e => e.target === pod.id);
 
     if (ingressEdges.length > 0) {
@@ -85,12 +83,21 @@ spec:
 `;
       ingressEdges.forEach(edge => {
         const sourceNode = nodes.find(n => n.id === edge.source);
-        if (sourceNode && sourceNode.data.type === 'k8sPod') {
-          const sourceName = (sourceNode.data.name || sourceNode.type + '-' + sourceNode.id.split('-').pop()).toLowerCase().replace(/_/g, '-');
-          yaml += `  - from:\n`;
-          yaml += `    - podSelector:\n`;
-          yaml += `        matchLabels:\n`;
-          yaml += `          app: ${sourceName}\n`;
+        if (sourceNode) {
+          if (sourceNode.data.type === 'k8sPod') {
+            const sourceName = (sourceNode.data.name || sourceNode.type + '-' + sourceNode.id.split('-').pop()).toLowerCase().replace(/_/g, '-');
+            yaml += `  - from:\n`;
+            yaml += `    - podSelector:\n`;
+            yaml += `        matchLabels:\n`;
+            yaml += `          app: ${sourceName}\n`;
+          } else if (sourceNode.data.type === 'internet' || sourceNode.data.cidr) {
+            yaml += `  - from:\n`;
+            yaml += `    - ipBlock:\n`;
+            yaml += `        cidr: ${sourceNode.data.cidr || '0.0.0.0/0'}\n`;
+          } else {
+            // Generic fallback for other source types
+            yaml += `  - from: [] # Allowing traffic from ${sourceNode.data.type || 'unknown'}\n`;
+          }
 
           if (edge.data?.port && edge.data.port !== '*') {
             const proto = edge.data.protocol === 'udp' ? 'UDP' : 'TCP';

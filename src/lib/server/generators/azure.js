@@ -87,43 +87,7 @@ export function generateAzure(nodes, edges = []) {
             tf += `resource "azurerm_network_security_group" "${name}" {\n`;
             tf += `  name                = "${name}-nsg"\n`;
             tf += `  location            = azurerm_resource_group.main.location\n`;
-            tf += `  resource_group_name = azurerm_resource_group.main.name\n`;
-
-            const sgChildren = nodes.filter(n => n.parentId === id).map(n => n.id);
-            const relevantEdges = edges.filter(e => sgChildren.includes(e.source) || sgChildren.includes(e.target) || e.source === id || e.target === id);
-
-            let ruleIndex = 100;
-
-            relevantEdges.forEach((edge, i) => {
-                const isIngress = sgChildren.includes(edge.target) || edge.target === id;
-                const isEgress = sgChildren.includes(edge.source) || edge.source === id;
-
-                let proto = edge.data?.protocol === 'all' ? '*' : (edge.data?.protocol?.toUpperCase() || 'TCP');
-                let portStr = (edge.data?.port || '*').toString();
-
-                if (edge.data?.protocol === 'http') { proto = 'TCP'; portStr = '80'; }
-                else if (edge.data?.protocol === 'https') { proto = 'TCP'; portStr = '443'; }
-
-                const direction = isIngress ? 'Inbound' : 'Outbound';
-                const ruleName = `rule-${direction.toLowerCase()}-${i}`;
-
-                tf += `  security_rule {\n`;
-                tf += `    name                       = "${ruleName}"\n`;
-                tf += `    priority                   = ${ruleIndex++}\n`;
-                tf += `    direction                  = "${direction}"\n`;
-                tf += `    access                     = "Allow"\n`;
-                tf += `    protocol                   = "${proto}"\n`;
-                tf += `    source_port_range          = "*"\n`;
-                tf += `    destination_port_range     = "${portStr}"\n`;
-                tf += `    source_address_prefix      = "*"\n`;
-                tf += `    destination_address_prefix = "*"\n`;
-                tf += `  }\n`;
-            });
-
-            if (relevantEdges.length === 0) {
-                tf += `  security_rule {\n    name                       = "AllowAllInbound"\n    priority                   = 100\n    direction                  = "Inbound"\n    access                     = "Allow"\n    protocol                   = "*"\n    source_port_range          = "*"\n    destination_port_range     = "*"\n    source_address_prefix      = "*"\n    destination_address_prefix = "*"\n  }\n`;
-            }
-            tf += `}\n\n`;
+            tf += `  resource_group_name = azurerm_resource_group.main.name\n}\n\n`;
         }
         else if (data.type === 'kubernetes') {
             tf += `resource "azurerm_kubernetes_cluster" "${name}" {\n`;
@@ -159,6 +123,55 @@ export function generateAzure(nodes, edges = []) {
                 tf += `  virtual_machine_id = azurerm_linux_virtual_machine.${computeName}.id\n`;
                 tf += `  lun                = "10"\n`;
                 tf += `  caching            = "ReadWrite"\n}\n\n`;
+            }
+        }
+    });
+
+    // --- Network Orchestration (VNet Peering) ---
+    edges.forEach((edge, idx) => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+
+        if (!sourceNode || !targetNode) return;
+
+        const sourceName = sourceNode.data.name || sourceNode.id.replace(/-/g, '_');
+        const targetName = targetNode.data.name || targetNode.id.replace(/-/g, '_');
+
+        if (sourceNode.data.type === 'vnet' && targetNode.data.type === 'vnet' && sourceNode.data.provider === 'azure' && targetNode.data.provider === 'azure') {
+            tf += `resource "azurerm_virtual_network_peering" "peer_${idx}" {\n`;
+            tf += `  name                         = "peer-${idx}"\n`;
+            tf += `  resource_group_name          = azurerm_resource_group.main.name\n`;
+            tf += `  virtual_network_name         = azurerm_virtual_network.${sourceName}.name\n`;
+            tf += `  remote_virtual_network_id    = azurerm_virtual_network.${targetName}.id\n`;
+            tf += `  allow_virtual_network_access = true\n}\n\n`;
+        }
+    });
+
+    // --- Network Connections (Edges to NSG Rules) ---
+    edges.forEach((edge, idx) => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+
+        if (targetNode && targetNode.data.provider === 'azure' && !['vnet', 'subnet'].includes(targetNode.data.type)) {
+            const targetNsg = resolveDependency(targetNode.id, 'networkGroup');
+            if (targetNsg) {
+                let proto = edge.data?.protocol === 'all' ? '*' : (edge.data?.protocol?.toUpperCase() || 'TCP');
+                let portStr = (edge.data?.port || '*').toString();
+                if (edge.data?.protocol === 'http') { proto = 'TCP'; portStr = '80'; }
+                else if (edge.data?.protocol === 'https') { proto = 'TCP'; portStr = '443'; }
+
+                tf += `resource "azurerm_network_security_rule" "rule_${idx}" {\n`;
+                tf += `  name                        = "rule-${idx}"\n`;
+                tf += `  priority                    = ${100 + idx}\n`;
+                tf += `  direction                   = "Inbound"\n`;
+                tf += `  access                      = "Allow"\n`;
+                tf += `  protocol                    = "${proto}"\n`;
+                tf += `  source_port_range           = "*"\n`;
+                tf += `  destination_port_range      = "${portStr}"\n`;
+                tf += `  source_address_prefix       = "${sourceNode?.data.cidr || (sourceNode?.data.type === 'internet' ? '*' : '*')}"\n`;
+                tf += `  destination_address_prefix  = "*"\n`;
+                tf += `  resource_group_name         = azurerm_resource_group.main.name\n`;
+                tf += `  network_security_group_name = azurerm_network_security_group.${targetNsg}.name\n}\n\n`;
             }
         }
     });

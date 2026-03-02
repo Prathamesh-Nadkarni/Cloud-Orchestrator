@@ -73,52 +73,9 @@ export function generateAWS(nodes, edges = []) {
       const vpcName = resolveDependency(id, 'vpc') || 'main';
       tf += `resource "aws_security_group" "${name}" {\n`;
       tf += `  name        = "${name}-sg"\n`;
-      tf += `  description = "Managed by Multicloud Designer"\n`;
+      tf += `  description = "Security Group for ${name}"\n`;
       tf += `  vpc_id      = aws_vpc.${vpcName}.id\n`;
-
-      const sgChildren = nodes.filter(n => n.parentId === id).map(n => n.id);
-      const relevantEdges = edges.filter(e => sgChildren.includes(e.source) || sgChildren.includes(e.target) || e.source === id || e.target === id);
-
-      let ingressAdded = false;
-      let egressAdded = false;
-
-      relevantEdges.forEach(edge => {
-        const isIngress = sgChildren.includes(edge.target) || edge.target === id;
-        const isEgress = sgChildren.includes(edge.source) || edge.source === id;
-
-        let proto = edge.data?.protocol === 'all' ? '-1' : (edge.data?.protocol || 'tcp');
-        let portStr = (edge.data?.port || '0').toString();
-        let fromPort = 0;
-        let toPort = 0;
-
-        if (proto === 'http') { proto = 'tcp'; fromPort = 80; toPort = 80; }
-        else if (proto === 'https') { proto = 'tcp'; fromPort = 443; toPort = 443; }
-        else if (portStr !== '*' && proto !== '-1') {
-          if (portStr.includes('-')) {
-            const parts = portStr.split('-');
-            fromPort = parseInt(parts[0]) || 0;
-            toPort = parseInt(parts[1]) || 0;
-          } else {
-            fromPort = parseInt(portStr) || 0;
-            toPort = parseInt(portStr) || 0;
-          }
-        }
-
-        if (isIngress) {
-          tf += `  ingress {\n    from_port   = ${fromPort}\n    to_port     = ${toPort}\n    protocol    = "${proto}"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n`;
-          ingressAdded = true;
-        }
-        if (isEgress) {
-          tf += `  egress {\n    from_port   = ${fromPort}\n    to_port     = ${toPort}\n    protocol    = "${proto}"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n`;
-          egressAdded = true;
-        }
-      });
-
-      if (!ingressAdded && !egressAdded) {
-        tf += `  ingress {\n    from_port   = 0\n    to_port     = 0\n    protocol    = "-1"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n`;
-        tf += `  egress {\n    from_port   = 0\n    to_port     = 0\n    protocol    = "-1"\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n`;
-      }
-      tf += `}\n\n`;
+      tf += `  tags = {\n    Name = "${name}"\n  }\n}\n\n`;
     }
     else if (data.type === 'kubernetes') {
       const subnetName = resolveDependency(id, 'subnet') || 'main';
@@ -151,6 +108,82 @@ export function generateAWS(nodes, edges = []) {
         tf += `  device_name = "/dev/sdh"\n`;
         tf += `  volume_id   = aws_ebs_volume.${name}.id\n`;
         tf += `  instance_id = aws_instance.${computeName}.id\n}\n\n`;
+      }
+    }
+  });
+
+  // --- Network Orchestration (VPC Peering & TGW Attachments) ---
+  edges.forEach((edge, idx) => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    const sourceName = sourceNode.data.name || sourceNode.id.replace(/-/g, '_');
+    const targetName = targetNode.data.name || targetNode.id.replace(/-/g, '_');
+
+    // VPC Peering
+    if (sourceNode.data.type === 'vpc' && targetNode.data.type === 'vpc' && sourceNode.data.provider === 'aws' && targetNode.data.provider === 'aws') {
+      tf += `resource "aws_vpc_peering_connection" "peer_${idx}" {\n`;
+      tf += `  peer_vpc_id = aws_vpc.${targetName}.id\n`;
+      tf += `  vpc_id      = aws_vpc.${sourceName}.id\n`;
+      tf += `  auto_accept = true\n}\n\n`;
+    }
+
+    // Transit Gateway Attachment
+    if (sourceNode.data.type === 'vpc' && (targetNode.data.type === 'transit' || targetNode.data.type === 'spoke')) {
+      tf += `resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attachment_${idx}" {\n`;
+      tf += `  subnet_ids         = [aws_subnet.${resolveDependency(sourceNode.id, 'subnet') || 'main'}.id]\n`;
+      tf += `  transit_gateway_id = aws_ec2_transit_gateway.${targetName}.id\n`;
+      tf += `  vpc_id             = aws_vpc.${sourceName}.id\n}\n\n`;
+    }
+  });
+
+  // --- Network Connections (Edges to SG Rules) ---
+  edges.forEach((edge, idx) => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+
+    if (targetNode && targetNode.data.provider === 'aws' && !['vpc', 'subnet', 'transit', 'spoke'].includes(targetNode.data.type)) {
+      const targetSg = resolveDependency(targetNode.id, 'securityGroup');
+      if (targetSg) {
+        let proto = edge.data?.protocol === 'all' ? '-1' : (edge.data?.protocol || 'tcp');
+        let port = edge.data?.port || '0';
+        let fromPort = 0;
+        let toPort = 0;
+
+        if (proto === 'http') { proto = 'tcp'; fromPort = 80; toPort = 80; }
+        else if (proto === 'https') { proto = 'tcp'; fromPort = 443; toPort = 443; }
+        else if (port !== '*' && proto !== '-1') {
+          if (port.toString().includes('-')) {
+            const parts = port.toString().split('-');
+            fromPort = parseInt(parts[0]) || 0;
+            toPort = parseInt(parts[1]) || 0;
+          } else {
+            fromPort = parseInt(port) || 0;
+            toPort = parseInt(port) || 0;
+          }
+        }
+
+        tf += `resource "aws_security_group_rule" "ingress_${idx}" {\n`;
+        tf += `  type              = "ingress"\n`;
+        tf += `  from_port         = ${fromPort}\n`;
+        tf += `  to_port           = ${toPort}\n`;
+        tf += `  protocol          = "${proto}"\n`;
+
+        if (sourceNode?.data.type === 'internet' || !sourceNode) {
+          tf += `  cidr_blocks       = ["0.0.0.0/0"]\n`;
+        } else if (sourceNode.data.cidr) {
+          tf += `  cidr_blocks       = ["${sourceNode.data.cidr}"]\n`;
+        } else {
+          const sourceSg = resolveDependency(sourceNode.id, 'securityGroup');
+          if (sourceSg) {
+            tf += `  source_security_group_id = aws_security_group.${sourceSg}.id\n`;
+          } else {
+            tf += `  cidr_blocks       = ["0.0.0.0/0"]\n`;
+          }
+        }
+        tf += `  security_group_id = aws_security_group.${targetSg}.id\n}\n\n`;
       }
     }
   });

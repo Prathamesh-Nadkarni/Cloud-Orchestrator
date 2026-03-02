@@ -67,36 +67,7 @@ export function generateGCP(nodes, edges = []) {
             tf += `resource "google_compute_firewall" "${name}" {\n`;
             tf += `  name    = "${name.replace(/_/g, '-')}-fw"\n`;
             tf += `  network = google_compute_network.${vpcName}.name\n`;
-
-            const sgChildren = nodes.filter(n => n.parentId === id).map(n => n.id);
-            const relevantEdges = edges.filter(e => sgChildren.includes(e.source) || sgChildren.includes(e.target) || e.source === id || e.target === id);
-
-            let allowAdded = false;
-
-            relevantEdges.forEach(edge => {
-                const isIngress = sgChildren.includes(edge.target) || edge.target === id;
-                if (!isIngress) return; // GCP firewalls are typically ingress-only in basic setups
-
-                let proto = edge.data?.protocol === 'all' ? 'all' : (edge.data?.protocol || 'tcp');
-                let portStr = (edge.data?.port || '').toString();
-
-                if (proto === 'http') { proto = 'tcp'; portStr = '80'; }
-                else if (proto === 'https') { proto = 'tcp'; portStr = '443'; }
-
-                tf += `  allow {\n`;
-                tf += `    protocol = "${proto}"\n`;
-                if (portStr && portStr !== '*') {
-                    tf += `    ports    = ["${portStr}"]\n`;
-                }
-                tf += `  }\n`;
-                allowAdded = true;
-            });
-
-            if (!allowAdded) {
-                tf += `  allow {\n    protocol = "tcp"\n    ports    = ["80", "443", "22"]\n  }\n`;
-            }
-
-            tf += `  source_ranges = ["0.0.0.0/0"]\n}\n\n`;
+            tf += `  # Use edges to define rules for this VPC\n}\n\n`;
         }
         else if (data.type === 'kubernetes') {
             const vpcName = resolveDependency(id, 'vpc') || 'main';
@@ -129,6 +100,49 @@ export function generateGCP(nodes, edges = []) {
                 tf += `  disk     = google_compute_disk.${name}.id\n`;
                 tf += `  instance = google_compute_instance.${computeName}.id\n}\n\n`;
             }
+        }
+    });
+
+    // --- Network Orchestration (VPC Peering) ---
+    edges.forEach((edge, idx) => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+
+        if (!sourceNode || !targetNode) return;
+
+        const sourceName = sourceNode.data.name || sourceNode.id.replace(/-/g, '_');
+        const targetName = targetNode.data.name || targetNode.id.replace(/-/g, '_');
+
+        if (sourceNode.data.type === 'vpc' && targetNode.data.type === 'vpc' && sourceNode.data.provider === 'gcp' && targetNode.data.provider === 'gcp') {
+            tf += `resource "google_compute_network_peering" "peer_${idx}" {\n`;
+            tf += `  name         = "peer-${idx}"\n`;
+            tf += `  network      = google_compute_network.${sourceName}.id\n`;
+            tf += `  peer_network = google_compute_network.${targetName}.id\n}\n\n`;
+        }
+    });
+
+    // --- Network Connections (Edges to Firewall Rules) ---
+    edges.forEach((edge, idx) => {
+        const targetNode = nodes.find(n => n.id === edge.target);
+        const sourceNode = nodes.find(n => n.id === edge.source);
+
+        if (targetNode && targetNode.data.provider === 'gcp' && !['vpc', 'subnet'].includes(targetNode.data.type)) {
+            const vpcName = resolveDependency(targetNode.id, 'vpc') || 'main';
+            let proto = edge.data?.protocol === 'all' ? 'all' : (edge.data?.protocol || 'tcp');
+            let portStr = (edge.data?.port || '').toString();
+            if (proto === 'http') { proto = 'tcp'; portStr = '80'; }
+            else if (proto === 'https') { proto = 'tcp'; portStr = '443'; }
+
+            tf += `resource "google_compute_firewall" "rule_${idx}" {\n`;
+            tf += `  name    = "rule-${idx}"\n`;
+            tf += `  network = google_compute_network.${vpcName}.name\n`;
+            tf += `  allow {\n`;
+            tf += `    protocol = "${proto}"\n`;
+            if (portStr && portStr !== '*') {
+                tf += `    ports    = ["${portStr}"]\n`;
+            }
+            tf += `  }\n`;
+            tf += `  source_ranges = ["${sourceNode?.data.cidr || '0.0.0.0/0'}"]\n}\n\n`;
         }
     });
 

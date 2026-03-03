@@ -1,0 +1,81 @@
+{
+    "nodes": [
+        {
+            "id": "node-internet-1",
+            "type": "cloudNode",
+            "position": {
+                "x": 100,
+                "y": 200
+            },
+            "data": {
+                "type": "internet",
+                "name": "Public Internet",
+                "provider": "aws",
+                "label": "Internet Gateway"
+            }
+        },
+        {
+            "id": "node-compute-1",
+            "type": "cloudNode",
+            "position": {
+                "x": 400,
+                "y": 200
+            },
+            "data": {
+                "type": "compute",
+                "name": "web-instance",
+                "provider": "aws",
+                "label": "Web Server",
+                "size": "t3.medium"
+            }
+        },
+        {
+            "id": "node-database-1",
+            "type": "cloudNode",
+            "position": {
+                "x": 700,
+                "y": 200
+            },
+            "data": {
+                "type": "database",
+                "name": "prod-db",
+                "provider": "aws",
+                "label": "PostgreSQL RDS"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-1",
+            "source": "node-internet-1",
+            "target": "node-compute-1",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-2",
+            "source": "node-compute-1",
+            "target": "node-database-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-3",
+            "source": "node-internet-1",
+            "target": "node-database-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432",
+                "dcfAction": "deny"
+            },
+            "animated": false,
+            "style": "stroke: #ea580c; stroke-width: 2; stroke-dasharray: 5 5;"
+        }
+    ]
+}

@@ -1,0 +1,72 @@
+{
+    "smartGroups": [
+        {
+            "name": "Public-Entry",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "internet"
+                }
+            ]
+        },
+        {
+            "name": "Trusted-App-Tier",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "compute"
+                }
+            ]
+        },
+        {
+            "name": "Restricted-DB-Tier",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "database"
+                }
+            ]
+        }
+    ],
+    "policies": [
+        {
+            "name": "Global-Internet-Deny-to-DB",
+            "action": "DENY",
+            "protocol": "ANY",
+            "port": "ANY",
+            "srcSmartGroups": [
+                "Public-Entry"
+            ],
+            "dstSmartGroups": [
+                "Restricted-DB-Tier"
+            ]
+        },
+        {
+            "name": "Allow-App-to-DB-Postgres",
+            "action": "ALLOW",
+            "protocol": "TCP",
+            "port": "5432",
+            "srcSmartGroups": [
+                "Trusted-App-Tier"
+            ],
+            "dstSmartGroups": [
+                "Restricted-DB-Tier"
+            ]
+        },
+        {
+            "name": "Allow-Public-Web-Traffic",
+            "action": "ALLOW",
+            "protocol": "TCP",
+            "port": "443",
+            "srcSmartGroups": [
+                "Public-Entry"
+            ],
+            "dstSmartGroups": [
+                "Trusted-App-Tier"
+            ]
+        }
+    ]
+}

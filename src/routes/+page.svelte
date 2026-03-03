@@ -18,6 +18,7 @@
   import AttachModal from "$lib/components/AttachModal.svelte";
   import AlertDialog from "$lib/components/AlertDialog.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import TerraformConverter from "$lib/components/TerraformConverter.svelte";
   import { writable, get } from "svelte/store";
 
   interface CloudNodeData extends Record<string, unknown> {
@@ -42,6 +43,9 @@
   const selectedNode = writable<AppNode | null>(null);
   let nodes = $state<AppNode[]>([]);
   let edges = $state<AppEdge[]>([]);
+
+  // Current view toggle
+  let currentView = $state("orchestrator");
 
   // Context Menu State
   let contextMenuOpen = $state(false);
@@ -536,10 +540,11 @@
 />
 
 <div class="app-container">
-  <TopNav {nodes} {edges} />
+  <TopNav {nodes} {edges} bind:currentView={currentView} onSimulationComplete={(newEdges) => { edges = [...newEdges] }} />
 
-  <div class="workspace">
-    <Sidebar />
+  {#if currentView === "orchestrator"}
+    <div class="workspace">
+      <Sidebar />
 
     <main class="canvas-wrapper" ondragover={onDragOver} ondrop={onDrop}>
       <SvelteFlow
@@ -573,6 +578,11 @@
       bind:edges
     />
   </div>
+  {:else}
+    <div class="workspace">
+      <TerraformConverter />
+    </div>
+  {/if}
 
   <ContextMenu
     bind:isOpen={contextMenuOpen}

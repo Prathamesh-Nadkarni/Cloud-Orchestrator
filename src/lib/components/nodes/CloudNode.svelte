@@ -96,7 +96,7 @@
         : sizingLevel === 3
           ? 120
           : 80}
-    handleStyle="border: 1px solid var(--node-accent); background: white; width: 8px; height: 8px; border-radius: 2px;"
+    handleStyle="border: 1px solid var(--node-accent); background: var(--bg-dark); width: 8px; height: 8px; border-radius: 2px;"
     lineStyle="border-color: var(--node-accent); border-width: 1px;"
   />
   <Handle

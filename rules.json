@@ -1,0 +1,38 @@
+{
+  "smartGroups": [
+    {
+      "name": "External-Traffic",
+      "matchExpressions": [
+        {
+          "type": "CIDR",
+          "operator": "EQUALS",
+          "value": "0.0.0.0/0"
+        }
+      ]
+    },
+    {
+      "name": "dcf
+      "matchExpressions": [
+        {
+          "type": "RESOURCE_TYPE",
+          "operator": "EQUALS",
+          "value": "TRANSIT_GATEWAY"
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "name": "Deny-External-To-TGW",
+      "action": "DENY",
+      "protocol": "ANY",
+      "port": "ANY",
+      "srcSmartGroups": [
+        "External-Traffic"
+      ],
+      "dstSmartGroups": [
+        "dcf"
+      ]
+    }
+  ]
+}

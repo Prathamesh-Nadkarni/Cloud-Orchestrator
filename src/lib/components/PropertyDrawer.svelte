@@ -54,6 +54,16 @@
                 break;
             }
           }
+
+          if (key === "dcfAction" && value === "deny") {
+             // Preview styling for blocked edge, actual simulation might override this
+             updatedEdge.style = "stroke: #ea580c; stroke-width: 2; stroke-dasharray: 5 5;";
+             updatedEdge.animated = false;
+          } else if (key === "dcfAction" && value !== "deny") {
+             updatedEdge.style = "stroke: var(--text-color); stroke-width: 2;";
+             updatedEdge.animated = true;
+          }
+
           return updatedEdge;
         }
         return e;
@@ -341,6 +351,22 @@
           />
         </div>
       {/if}
+
+      <div class="form-group" style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+        <label for="dcf-action" style="color: var(--accent-avx);">Aviatrix DCF Enforcement</label>
+        <select
+          id="dcf-action"
+          value={selectedEdge.data?.dcfAction || "none"}
+          onchange={(e) => updateEdgeData("dcfAction", e.target.value)}
+        >
+          <option value="none">No Policy (Passthrough)</option>
+          <option value="allow">Explicit Allow</option>
+          <option value="deny">Explicit Deny (Drop Traffic)</option>
+        </select>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+          Simulate how Distributed Cloud Firewall policies affect the traffic flow between these nodes.
+        </p>
+      </div>
     </div>
   {:else}
     <div class="empty-state">

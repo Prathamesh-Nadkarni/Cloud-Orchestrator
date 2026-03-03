@@ -12,11 +12,14 @@
     Image,
     LayoutTemplate,
     ChevronRight,
+    AlertTriangle,
+    Shield,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
   import CostBreakdown from "./CostBreakdown.svelte";
+  import { simulateDataFlow, type Vulnerability, type SimulationResult, type ImportedDCF } from "$lib/utils/securitySimulator";
 
-  let { nodes = $bindable(), edges = $bindable() } = $props();
+  let { nodes = $bindable(), edges = $bindable(), currentView = $bindable(), onSimulationComplete = () => {} } = $props();
   let isGenerating = $state(false);
   let showResult = $state(false);
   let generatedCode = $state("");
@@ -25,6 +28,9 @@
   let copied = $state(false);
   let showCostBreakdown = $state(false);
 
+  // Security Simulation State
+  let simulationResult: SimulationResult | null = $state(null);
+  let importedDCF: ImportedDCF | null = $state(null);
   let estimatedCost = $derived(
     nodes.reduce((acc: number, node: any) => {
       let nodeCost = 0;
@@ -53,6 +59,46 @@
   async function handleGenerate() {
     isGenerating = true;
     try {
+      // Run data flow simulation
+      simulationResult = simulateDataFlow(nodes, edges, importedDCF || undefined);
+
+      // Highlight edges dynamically based on simulation result
+      edges = edges.map((edge: any) => {
+        const isVulnerable = simulationResult!.vulnerabilities.some(v => v.edgeId === edge.id);
+        const isSimulated = simulationResult!.simulatedEdges.includes(edge.id);
+        const isBlocked = simulationResult!.blockedEdges.includes(edge.id);
+        
+        if (isBlocked) {
+          return {
+            ...edge,
+            style: "stroke: #ea580c; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;",
+            animated: false,
+          };
+        } else if (isVulnerable) {
+          return {
+            ...edge,
+            style: "stroke: #ff4444; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8));",
+            animated: true,
+          };
+        } else if (isSimulated) {
+          return {
+            ...edge,
+            style: "stroke: #3b82f6; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.8));",
+            animated: true,
+          };
+        } else {
+           return {
+             ...edge,
+             style: "stroke: var(--text-color); stroke-width: 2;",
+             animated: false,
+           }
+        }
+      });
+
+      if (onSimulationComplete) {
+         onSimulationComplete(edges);
+      }
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,6 +197,24 @@
       event.target.value = null;
     };
     reader.readAsText(file);
+  }
+
+  function importDCF(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          importedDCF = JSON.parse(content);
+          alert(`Successfully loaded DCF Policy profile with ${importedDCF?.policies.length} rules.`);
+        } catch (error) {
+          alert("Error parsing DCF Policy JSON file");
+          console.error(error);
+        }
+      };
+      reader.readAsText(file);
+    }
   }
 
   function downloadImage() {
@@ -309,8 +373,11 @@
     <div class="logo-icon">
       <Network size={20} color="var(--accent-primary)" />
     </div>
-    <span class="title">MultiCloud <span class="highlight">Designer</span></span
-    >
+
+    <select class="view-selector title-dropdown" bind:value={currentView}>
+      <option value="orchestrator">Cloud Orchestrator</option>
+      <option value="terraform">Terraform Converter</option>
+    </select>
 
     {#if estimatedCost > 0}
       <button
@@ -350,6 +417,10 @@
     <label class="action-btn file-import-btn" title="Import JSON">
       <FileUp size={16} /> JSON
       <input type="file" accept=".json" onchange={importLayout} />
+    </label>
+    <label class="action-btn file-import-btn" title="Import DCF Policies">
+      <Shield size={16} color="var(--accent-avx)" /> DCF
+      <input type="file" accept=".json" onchange={importDCF} />
     </label>
     <button class="action-btn" onclick={downloadImage} title="Export PNG Image">
       <Image size={16} /> PNG
@@ -406,25 +477,89 @@
               Kubernetes (k8s.yaml)
             </button>
           {/if}
+          {#if simulationResult}
+            <button
+              class="tab-btn"
+              class:active={activeTab === "security"}
+              onclick={() => (activeTab = "security")}
+            >
+              <AlertTriangle size={14} style="display:inline; margin-right:4px; vertical-align:text-bottom; color: {simulationResult.vulnerabilities.length > 0 ? '#ff4444' : '#3b82f6'};" /> 
+              Simulation Report ({simulationResult.vulnerabilities.length} Issues)
+            </button>
+          {/if}
         </div>
         <div class="modal-actions">
-          <button class="icon-btn" onclick={copyCode} title="Copy to clipboard">
-            {#if copied}
-              <Check size={18} color="var(--accent-primary)" />
-            {:else}
-              <Copy size={18} />
-            {/if}
-          </button>
-          <button class="icon-btn" onclick={downloadCode} title="Download code">
-            <Download size={18} />
-          </button>
+          {#if activeTab !== "security"}
+            <button class="icon-btn" onclick={copyCode} title="Copy to clipboard">
+              {#if copied}
+                <Check size={18} color="var(--accent-primary)" />
+              {:else}
+                <Copy size={18} />
+              {/if}
+            </button>
+            <button class="icon-btn" onclick={downloadCode} title="Download code">
+              <Download size={18} />
+            </button>
+          {/if}
           <button class="close-btn" onclick={closeResult}>&times;</button>
         </div>
       </div>
       <div class="code-container">
-        <pre><code
-            >{activeTab === "terraform" ? generatedCode : generatedK8s}</code
-          ></pre>
+        {#if activeTab === "security"}
+           <div class="security-report">
+             <h3>Data Flow Simulation Report</h3>
+             <p class="summary-text">The simulation provenance graph evaluated the network flow. Safe routed data flows are highlighted in <strong style="color: #3b82f6">BLUE</strong>. Vulnerable routes have been highlighted in <strong style="color: #ff4444">RED</strong> on the canvas. Traffic dropped by Aviatrix DCF is shown in <strong style="color: #ea580c">ORANGE</strong>.</p>
+             
+             {#if importedDCF}
+                <div class="dcf-banner">
+                  <Shield size={16} />
+                  <span><strong>{importedDCF.policies.length}</strong> External DCF Policies are actively enforcing routes.</span>
+                </div>
+             {/if}
+
+             <div class="metrics-grid">
+               <div class="metric-card">
+                 <span class="metric-value {simulationResult?.vulnerabilities.filter(v => v.severity === 'high').length ? 'error' : 'success'}">{simulationResult?.vulnerabilities.filter(v => v.severity === 'high').length}</span>
+                 <span class="metric-label">High Risk Vulnerabilities</span>
+               </div>
+               <div class="metric-card">
+                 <span class="metric-value warning">{simulationResult?.blockedEdges.length}</span>
+                 <span class="metric-label">Flows Blocked by DCF</span>
+               </div>
+             </div>
+
+             <button class="view-canvas-btn" onclick={closeResult}>
+                <Network size={16} /> View Provenance Graph on Canvas
+             </button>
+
+             <div class="vuln-list">
+               {#each simulationResult?.vulnerabilities || [] as vuln}
+                 <div class="vuln-card" class:blocked-card={vuln.severity === 'low'}>
+                   <div class="vuln-header">
+                      {#if vuln.severity === 'low'}
+                        <Shield size={18} color="#ea580c" />
+                      {:else}
+                        <AlertTriangle size={18} color="#ff4444" />
+                      {/if}
+                      <h4>{vuln.title}</h4>
+                      <span class="severity-badge {vuln.severity}">{vuln.severity === 'low' ? 'INFO' : vuln.severity.toUpperCase()}</span>
+                   </div>
+                   <p>{vuln.description}</p>
+                 </div>
+               {/each}
+               {#if simulationResult?.vulnerabilities.length === 0}
+                 <div class="safe-card">
+                   <Check size={24} color="#10b981" style="margin-right: 12px;"/>
+                   <p style="margin:0; font-weight: 500; color: #10b981">No insecure data flows found. Simulation paths look secure.</p>
+                 </div>
+               {/if}
+             </div>
+           </div>
+        {:else}
+          <pre><code
+              >{activeTab === "terraform" ? generatedCode : generatedK8s}</code
+            ></pre>
+        {/if}
       </div>
     </div>
   </div>
@@ -461,16 +596,33 @@
     box-shadow: var(--neon-glow);
   }
 
-  .title {
+  .title-dropdown {
+    margin-left: 0px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-main);
+    border-radius: 8px;
     font-size: 1.1rem;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: -0.5px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="none" viewBox="0 0 24 24" stroke="white" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 36px;
+  }
+  
+  .title-dropdown:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
   }
 
-  .highlight {
-    font-weight: 700;
-    color: var(--accent-primary);
-  }
+
 
   .cost-badge {
     margin-left: 20px;
@@ -705,5 +857,119 @@
     line-height: 1.5;
     color: #a8b2d1;
     white-space: pre-wrap;
+  }
+
+  .security-report {
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .security-report h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #ff4444;
+  }
+  
+  .vuln-count {
+    font-weight: 800;
+  }
+
+  .summary-text {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 16px 0;
+  }
+
+  .vuln-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .vuln-card {
+    background: rgba(255, 68, 68, 0.05);
+    border: 1px solid rgba(255, 68, 68, 0.2);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  
+  .blocked-card {
+    background: rgba(234, 88, 12, 0.05);
+    border-color: rgba(234, 88, 12, 0.2);
+  }
+
+  .safe-card {
+    display: flex;
+    align-items: center;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .view-canvas-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #818cf8;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+
+  .view-canvas-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: white;
+  }
+
+  .vuln-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .vuln-header h4 {
+    margin: 0;
+    flex: 1;
+    color: #ff4444;
+    font-size: 1.05rem;
+  }
+
+  .severity-badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .severity-badge.high {
+    background: rgba(255, 68, 68, 0.2);
+    color: #ff4444;
+    border: 1px solid #ff4444;
+  }
+
+  .severity-badge.medium {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+  }
+
+  .severity-badge.low {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
   }
 </style>

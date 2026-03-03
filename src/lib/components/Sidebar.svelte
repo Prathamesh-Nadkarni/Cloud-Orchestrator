@@ -61,7 +61,8 @@
       resources: [
         { type: 'transit', label: 'Transit Gateway', icon: Globe },
         { type: 'spoke', label: 'Spoke Gateway', icon: GitBranch },
-        { type: 'firewall', label: 'Firenet', icon: Shield }
+        { type: 'firewall', label: 'Firenet', icon: Shield },
+        { type: 'dcf', label: 'DCF Policy', icon: Shield }
       ]
     },
     {

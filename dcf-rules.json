@@ -1,0 +1,60 @@
+{
+    "smartGroups": [
+        {
+            "name": "Backend-DB",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "database"
+                }
+            ]
+        },
+        {
+            "name": "Public-Internet",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "internet"
+                }
+            ]
+        },
+        {
+            "name": "App-Compute",
+            "matchExpressions": [
+                {
+                    "type": "nodeType",
+                    "operator": "equals",
+                    "value": "compute"
+                }
+            ]
+        }
+    ],
+    "policies": [
+        {
+            "name": "Block-Internet-to-DB",
+            "action": "DENY",
+            "protocol": "ANY",
+            "port": "ANY",
+            "srcSmartGroups": [
+                "Public-Internet"
+            ],
+            "dstSmartGroups": [
+                "Backend-DB"
+            ]
+        },
+        {
+            "name": "Allow-App-to-DB",
+            "action": "ALLOW",
+            "protocol": "TCP",
+            "port": "5432",
+            "srcSmartGroups": [
+                "App-Compute"
+            ],
+            "dstSmartGroups": [
+                "Backend-DB"
+            ]
+        }
+    ]
+}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import * as Blockly from "blockly";
+  // @ts-ignore
   import HCL from "js-hcl-parser";
   import { defineTerraformBlocks } from "$lib/blockly/blocks";
   import mermaid from "mermaid";
@@ -165,7 +166,7 @@
     cleaned = cleaned.replace(/"var"\s+\.\s+([a-zA-Z0-9_]+)/g, "var.$1");
     cleaned = cleaned.replace(
       /(instance_type|type)\s*=\s*"var"\.([a-zA-Z0-9_]+)/g,
-      "$1 = var.$2"
+      "$1 = var.$2",
     );
 
     const listFields = [
@@ -184,56 +185,57 @@
       if (!fixed) return line;
 
       for (const field of listFields) {
-        const quotedPattern = new RegExp(`^\\s*${field}\\s+=\\s*"([^"]+)"\\s*$`);
+        const quotedPattern = new RegExp(
+          `^\\s*${field}\\s+=\\s*"([^"]+)"\\s*$`,
+        );
         if (quotedPattern.test(fixed)) {
           const match = fixed.match(quotedPattern);
           const value = match![1];
-          const isRef = /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(
-            value
-          );
+          const isRef =
+            /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(
+              value,
+            );
           const finalValue = isRef ? value : `"${value}"`;
           const spacing =
             fixed.match(new RegExp(`^\\s*${field}(\\s+)=`))?.[1] || " ";
           fixed = fixed.replace(
             quotedPattern,
-            `${field}${spacing}= [${finalValue}]`
+            `${field}${spacing}= [${finalValue}]`,
           );
           break;
         }
 
         const unquotedPattern = new RegExp(
-          `^\\s*${field}\\s+=\\s*([^\\[\\n\\]]+?)\\s*$`
+          `^\\s*${field}\\s+=\\s*([^\\[\\n\\]]+?)\\s*$`,
         );
         if (unquotedPattern.test(fixed) && !fixed.includes("[")) {
           const match = fixed.match(unquotedPattern);
           const value = match![1].trim();
           if (value && !value.startsWith("[") && value !== "") {
-            const isRef = /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(
-              value
-            );
+            const isRef =
+              /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(
+                value,
+              );
             const finalValue = isRef ? value : `"${value}"`;
             const spacing =
               fixed.match(new RegExp(`^\\s*${field}(\\s+)=`))?.[1] || " ";
             fixed = fixed.replace(
               unquotedPattern,
-              `${field}${spacing}= [${finalValue}]`
+              `${field}${spacing}= [${finalValue}]`,
             );
             break;
           }
         }
 
         const refPattern = new RegExp(
-          `^\\s*${field}\\s+=\\s*([a-z_]+\\.[a-z0-9_]+\\.[a-z0-9_]+)(\\s*$)`
+          `^\\s*${field}\\s+=\\s*([a-z_]+\\.[a-z0-9_]+\\.[a-z0-9_]+)(\\s*$)`,
         );
         if (refPattern.test(fixed) && !fixed.includes("[")) {
           const match = fixed.match(refPattern);
           const value = match![1].trim();
           const spacing =
             fixed.match(new RegExp(`^\\s*${field}(\\s+)=`))?.[1] || " ";
-          fixed = fixed.replace(
-            refPattern,
-            `${field}${spacing}= [${value}]`
-          );
+          fixed = fixed.replace(refPattern, `${field}${spacing}= [${value}]`);
           break;
         }
       }
@@ -252,8 +254,14 @@
     cleaned = cleaned.replace(/(=\s*)"(module\.[^"]+)"/g, "$1$2");
 
     cleaned = cleaned.replace(/"\["([^"]+)"\]/g, '["$1"]');
-    cleaned = cleaned.replace(/(default|value)\s*=\s*"(\d+(?:\.\d+)?)"/g, "$1 = $2");
-    cleaned = cleaned.replace(/(from_port|to_port|port)\s*=\s*"(\d+)"/g, "$1 = $2");
+    cleaned = cleaned.replace(
+      /(default|value)\s*=\s*"(\d+(?:\.\d+)?)"/g,
+      "$1 = $2",
+    );
+    cleaned = cleaned.replace(
+      /(from_port|to_port|port)\s*=\s*"(\d+)"/g,
+      "$1 = $2",
+    );
 
     cleaned = removeTerraformBlock(cleaned);
 
@@ -267,9 +275,8 @@
       ) {
         inner = inner.slice(1, -1);
       }
-      const isRef = /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(
-        inner
-      );
+      const isRef =
+        /^(var\.|aws_|azurerm_|google_|data\.|local\.|module\.)/.test(inner);
       if (isRef) {
         return ` = "${inner}"`;
       } else {
@@ -285,27 +292,33 @@
         const alreadyQuoted = line.match(/=\s*["']/);
 
         if (!hasList && !alreadyQuoted) {
-          line = line.replace(/(=\s+)(var\.[a-zA-Z0-9_\-\.]+)(\s*$)/g, '$1"$2"$3');
+          line = line.replace(
+            /(=\s+)(var\.[a-zA-Z0-9_\-\.]+)(\s*$)/g,
+            '$1"$2"$3',
+          );
           line = line.replace(
             /(=\s+)(aws_[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*)(\s*$)/g,
-            '$1"$2"$3'
+            '$1"$2"$3',
           );
           line = line.replace(
             /(=\s+)(azurerm_[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*)(?!["\]])(\s*$)/gm,
-            '$1"$2"$3'
+            '$1"$2"$3',
           );
           line = line.replace(
             /(=\s+)(google_[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*)(\s*$)/g,
-            '$1"$2"$3'
+            '$1"$2"$3',
           );
           line = line.replace(
             /(=\s+)(data\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*)(\s*$)/g,
-            '$1"$2"$3'
+            '$1"$2"$3',
           );
-          line = line.replace(/(=\s+)(local\.[a-zA-Z0-9_\-]+)(\s*$)/g, '$1"$2"$3');
+          line = line.replace(
+            /(=\s+)(local\.[a-zA-Z0-9_\-]+)(\s*$)/g,
+            '$1"$2"$3',
+          );
           line = line.replace(
             /(=\s+)(module\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*)(\s*$)/g,
-            '$1"$2"$3'
+            '$1"$2"$3',
           );
         }
       }
@@ -316,7 +329,7 @@
     cleaned = cleaned.replace(/"var"\s*\.\s*([a-zA-Z0-9_]+)/g, "var.$1");
     cleaned = cleaned.replace(
       /(instance_type|type)\s*=\s*"var"\s*\.\s*([a-zA-Z0-9_]+)/g,
-      "$1 = var.$2"
+      "$1 = var.$2",
     );
 
     cleaned = cleaned.replace(/(=\s*)"(var\.[^"]+)"/g, "$1$2");
@@ -331,7 +344,7 @@
       /(=\s+)(var\.[a-zA-Z0-9_\-\.]+)(\s*$)/gm,
       (match, prefix, ref, suffix) => {
         return `${prefix}"${ref}"${suffix}`;
-      }
+      },
     );
 
     cleaned = cleaned.replace(
@@ -344,7 +357,7 @@
           return match;
         }
         return `${prefix}"${ref}"${suffix}`;
-      }
+      },
     );
 
     cleaned = cleaned.replace(
@@ -357,7 +370,7 @@
           return match;
         }
         return `${prefix}"${ref}"${suffix}`;
-      }
+      },
     );
 
     cleaned = cleaned.replace(
@@ -370,16 +383,16 @@
           return match;
         }
         return `${prefix}"${ref}"${suffix}`;
-      }
+      },
     );
 
     cleaned = cleaned.replace(
       /(from_port|to_port|port|count|size|min|max)\s*=\s*"(\d+(?:\.\d+)?)"/g,
-      "$1 = $2"
+      "$1 = $2",
     );
     cleaned = cleaned.replace(
       /(enabled|sensitive|required|nullable)\s*=\s*"(true|false)"/g,
-      "$1 = $2"
+      "$1 = $2",
     );
 
     cleaned = cleaned.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -406,7 +419,11 @@
     Object.keys(data).forEach((key) => {
       let value = data[key];
 
-      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
         const nestedBlock = workspace.newBlock("terraform_nested_block");
         nestedBlock.setFieldValue(key, "NAME");
         attachBlock(nestedBlock);
@@ -447,7 +464,7 @@
           // Await the render result and extract the svg
           const { svg } = await mermaid.render(
             "mermaid-diagram-" + Date.now(),
-            diagramResult.diagram
+            diagramResult.diagram,
           );
           diagramHtml = svg;
         } catch (err) {
@@ -496,10 +513,16 @@
     }
   }
 
-  function handleImport() {
-    if (!codeOutput || !codeOutput.trim()) {
-      alert("Please enter Terraform code to import.");
+  function handleImport(content?: string) {
+    const codeToImport = typeof content === "string" ? content : codeOutput;
+
+    if (!codeToImport || !codeToImport.trim()) {
+      alert("Please enter or upload Terraform code to import.");
       return;
+    }
+
+    if (typeof content === "string") {
+      codeOutput = content;
     }
 
     workspace.clear();
@@ -516,7 +539,7 @@
 
       if (!rawResult || rawResult.trim() === "") {
         throw new Error(
-          "Parser returned empty result. Please check your HCL syntax."
+          "Parser returned empty result. Please check your HCL syntax.",
         );
       }
 
@@ -527,7 +550,7 @@
         type: string | null,
         name: string,
         data: any,
-        blockType: string
+        blockType: string,
       ) => {
         const block = workspace.newBlock(blockType);
 
@@ -571,7 +594,7 @@
 
       if (json.variable) {
         Object.keys(json.variable).forEach((name) =>
-          createTopBlock(null, name, json.variable[name], "terraform_variable")
+          createTopBlock(null, name, json.variable[name], "terraform_variable"),
         );
       }
 
@@ -582,25 +605,25 @@
               type,
               name,
               json.resource[type][name],
-              "terraform_resource"
+              "terraform_resource",
             );
             if (block) {
               const schema = getResourceSchema(type);
               if (schema && Blockly.utils) {
-                 // Convert schema category to a hue 
-                  const categoryHue: Record<string, number> = {
-                    compute: 0,
-                    network: 180,
-                    storage: 150,
-                    database: 10,
-                    security: 270,
-                    monitoring: 330,
-                    other: 0,
-                  };
-  
-                  const hue = categoryHue[schema.category as string] || 0;
-                  // In Blockly, setColour expects either a Hue [0-360] or an rgb string. 
-                  block.setColour(hue);
+                // Convert schema category to a hue
+                const categoryHue: Record<string, number> = {
+                  compute: 0,
+                  network: 180,
+                  storage: 150,
+                  database: 10,
+                  security: 270,
+                  monitoring: 330,
+                  other: 0,
+                };
+
+                const hue = categoryHue[schema.category as string] || 0;
+                // In Blockly, setColour expects either a Hue [0-360] or an rgb string.
+                block.setColour(hue);
               }
             }
           });
@@ -617,7 +640,7 @@
 
       if (json.output) {
         Object.keys(json.output).forEach((name) =>
-          createTopBlock(null, name, json.output[name], "terraform_output")
+          createTopBlock(null, name, json.output[name], "terraform_output"),
         );
       }
 
@@ -674,33 +697,66 @@
 <div class="converter-wrapper glass-panel">
   <div class="header">
     <button class="btn-gen" onclick={handleGenerate}>Generate Terraform</button>
-    <button class="btn-imp" onclick={handleImport}>Import .tf File</button>
-    
+
+    <label
+      for="tf-import"
+      class="btn-imp"
+      style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
+    >
+      Import .tf File
+      <input
+        id="tf-import"
+        type="file"
+        accept=".tf"
+        style="display: none;"
+        onchange={(e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+              const content = re.target?.result as string;
+              handleImport(content);
+            };
+            reader.readAsText(file);
+          }
+        }}
+      />
+    </label>
+
     <div class="converter-section">
-        <label>Convert:</label>
-        <select id="sourcePlatform" title="Source platform (auto-detected from code)">
-            <option value="auto" selected>Auto-detect ⭐</option>
-            <option value="aws">AWS</option>
-            <option value="azurerm">Azure</option>
-            <option value="google">GCP</option>
-            <option value="aviatrix">Aviatrix</option>
-        </select>
-        <span>&rarr;</span>
-        <select id="targetPlatform" title="Target platform to convert to">
-            <option value="aws">AWS</option>
-            <option value="azurerm">Azure</option>
-            <option value="google">GCP</option>
-            <option value="aviatrix">Aviatrix</option>
-        </select>
-        <!-- For logic of Convert logic, ideally call detectPlatform and convertTerraform. We'll leave the button here to mimic original but skip implementation for brevity unless strictly needed. -->
-        <button class="btn-conv" id="convertBtn" title="Convert Terraform code between cloud platforms" onclick={() => alert("Conversion feature requires linking in original events.")}>Convert Platform</button>
+      <label for="sourcePlatform">Convert:</label>
+      <select
+        id="sourcePlatform"
+        title="Source platform (auto-detected from code)"
+      >
+        <option value="auto" selected>Auto-detect ⭐</option>
+        <option value="aws">AWS</option>
+        <option value="azurerm">Azure</option>
+        <option value="google">GCP</option>
+        <option value="aviatrix">Aviatrix</option>
+      </select>
+      <span>&rarr;</span>
+      <select id="targetPlatform" title="Target platform to convert to">
+        <option value="aws">AWS</option>
+        <option value="azurerm">Azure</option>
+        <option value="google">GCP</option>
+        <option value="aviatrix">Aviatrix</option>
+      </select>
+      <!-- For logic of Convert logic, ideally call detectPlatform and convertTerraform. We'll leave the button here to mimic original but skip implementation for brevity unless strictly needed. -->
+      <button
+        class="btn-conv"
+        id="convertBtn"
+        title="Convert Terraform code between cloud platforms"
+        onclick={() =>
+          alert("Conversion feature requires linking in original events.")}
+        >Convert Platform</button
+      >
     </div>
-    
   </div>
 
   <div class="container glass-panel">
     <div id="blocklyDiv" class="blockly-container"></div>
-    
+
     <textarea
       id="codeOutput"
       bind:value={codeOutput}
@@ -735,7 +791,7 @@
     width: 100%;
     overflow: hidden;
   }
-  
+
   .header {
     padding: 15px;
     background: var(--bg-panel);
@@ -816,7 +872,7 @@
     font-weight: 600;
     transition: all 0.2s;
   }
-  
+
   .btn-gen {
     background: var(--accent-primary);
     color: white;
@@ -826,19 +882,19 @@
     background: rgba(255, 255, 255, 0.1);
     color: white;
   }
-  
+
   .btn-conv {
     background: #10b981;
     color: white;
   }
-  
+
   .converter-section {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 20px;
     padding: 5px 10px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
     color: var(--text-main);
   }

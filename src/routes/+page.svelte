@@ -37,6 +37,7 @@
   // Register custom node shapes
   const nodeTypes = {
     cloud: CloudNode,
+    cloudNode: CloudNode,
   };
 
   // State
@@ -540,44 +541,51 @@
 />
 
 <div class="app-container">
-  <TopNav {nodes} {edges} bind:currentView={currentView} onSimulationComplete={(newEdges) => { edges = [...newEdges] }} />
+  <TopNav
+    bind:nodes
+    bind:edges
+    bind:currentView
+    onSimulationComplete={(newEdges: AppEdge[]) => {
+      edges = [...newEdges];
+    }}
+  />
 
   {#if currentView === "orchestrator"}
     <div class="workspace">
       <Sidebar />
 
-    <main class="canvas-wrapper" ondragover={onDragOver} ondrop={onDrop}>
-      <SvelteFlow
-        {nodes}
-        {edges}
-        {nodeTypes}
-        fitView
-        onnodeclick={onNodeClick}
-        onedgeclick={onEdgeClick}
-        onpaneclick={onPaneClick}
-        onselectionchange={onSelectionChange}
-        onnodecontextmenu={onNodeContextMenu}
-        onnodedragstop={handleNodeDragStop}
-        onconnect={handleConnect}
-        colorMode="dark"
-        class="glass-panel"
-      >
-        <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
-        <Controls />
-        <MiniMap
-          nodeColor="var(--bg-panel-hover)"
-          maskColor="rgba(0, 0, 0, 0.5)"
-        />
-      </SvelteFlow>
-    </main>
+      <main class="canvas-wrapper" ondragover={onDragOver} ondrop={onDrop}>
+        <SvelteFlow
+          bind:nodes
+          bind:edges
+          {nodeTypes}
+          fitView
+          onnodeclick={onNodeClick}
+          onedgeclick={onEdgeClick}
+          onpaneclick={onPaneClick}
+          onselectionchange={onSelectionChange}
+          onnodecontextmenu={onNodeContextMenu}
+          onnodedragstop={handleNodeDragStop}
+          onconnect={handleConnect}
+          colorMode="dark"
+          class="glass-panel"
+        >
+          <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
+          <Controls />
+          <MiniMap
+            nodeColor="var(--bg-panel-hover)"
+            maskColor="rgba(0, 0, 0, 0.5)"
+          />
+        </SvelteFlow>
+      </main>
 
-    <PropertyDrawer
-      selectedNode={$selectedNode}
-      {selectedEdge}
-      bind:nodes
-      bind:edges
-    />
-  </div>
+      <PropertyDrawer
+        selectedNode={$selectedNode}
+        {selectedEdge}
+        bind:nodes
+        bind:edges
+      />
+    </div>
   {:else}
     <div class="workspace">
       <TerraformConverter />

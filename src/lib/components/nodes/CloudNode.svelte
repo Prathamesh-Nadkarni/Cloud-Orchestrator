@@ -16,10 +16,12 @@
     Network,
   } from "lucide-svelte";
 
-  let { data, isConnectable, selected } = $props<{
+  let { data, isConnectable, selected, width, height } = $props<{
     data: any;
     isConnectable: boolean;
     selected: boolean;
+    width?: number;
+    height?: number;
   }>();
 
   function getIcon(type: string) {
@@ -78,7 +80,9 @@
   class="cloud-node {sizingLevel > 0 ? 'container-node' : ''}"
   class:selected
   data-level={sizingLevel}
-  style="--node-accent: var(--accent-{data.provider})"
+  style="--node-accent: var(--accent-{data.provider}); {width
+    ? `width: ${width}px;`
+    : ''} {height ? `height: ${height}px;` : ''}"
 >
   <NodeResizer
     isVisible={selected}

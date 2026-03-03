@@ -476,8 +476,8 @@
         ...connection,
         id: `edge-${Date.now()}`,
         data: edgeData,
-        style: "stroke: var(--text-color); stroke-width: 2;",
-        markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-color)" },
+        style: "stroke: var(--text-main); stroke-width: 2;",
+        markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-main)" },
         animated: true,
       },
     ];

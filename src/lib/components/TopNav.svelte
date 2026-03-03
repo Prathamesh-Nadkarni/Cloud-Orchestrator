@@ -109,7 +109,7 @@
         } else {
           return {
             ...edge,
-            style: "stroke: var(--text-color); stroke-width: 2;",
+            style: "stroke: var(--text-main); stroke-width: 2;",
             animated: false,
           };
         }

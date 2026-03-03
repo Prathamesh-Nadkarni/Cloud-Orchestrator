@@ -33,56 +33,56 @@
   // Toolbox XML content
   const toolboxXml = `
   <xml id="toolbox" style="display: none">
-    <category name="General" colour="#333">
-        <block type="terraform_variable"></block>
-        <block type="terraform_output"></block>
-        <block type="terraform_provider"></block>
-        <block type="terraform_data"></block>
-        <block type="terraform_locals"></block>
-        <block type="terraform_module"></block>
+    <category name="General" colour="#888888">
+      <block type="terraform_variable"></block>
+      <block type="terraform_output"></block>
+      <block type="terraform_provider"></block>
+      <block type="terraform_data"></block>
+      <block type="terraform_locals"></block>
+      <block type="terraform_module"></block>
     </category>
     <category name="AWS Resources" colour="#FF9900">
-        <block type="terraform_resource"><field name="TYPE">aws_instance</field></block>
-        <block type="terraform_resource"><field name="TYPE">aws_security_group</field></block>
-        <block type="terraform_resource"><field name="TYPE">aws_vpc</field></block>
-        <block type="terraform_resource"><field name="TYPE">aws_subnet</field></block>
-        <block type="terraform_resource"><field name="TYPE">aws_s3_bucket</field></block>
+      <block type="terraform_resource"><field name="TYPE">aws_instance</field></block>
+      <block type="terraform_resource"><field name="TYPE">aws_security_group</field></block>
+      <block type="terraform_resource"><field name="TYPE">aws_vpc</field></block>
+      <block type="terraform_resource"><field name="TYPE">aws_subnet</field></block>
+      <block type="terraform_resource"><field name="TYPE">aws_s3_bucket</field></block>
     </category>
     <category name="Azure Resources" colour="#0089D6">
-        <block type="terraform_resource"><field name="TYPE">azurerm_virtual_machine</field></block>
-        <block type="terraform_resource"><field name="TYPE">azurerm_network_security_group</field></block>
-        <block type="terraform_resource"><field name="TYPE">azurerm_virtual_network</field></block>
-        <block type="terraform_resource"><field name="TYPE">azurerm_subnet</field></block>
-        <block type="terraform_resource"><field name="TYPE">azurerm_resource_group</field></block>
+      <block type="terraform_resource"><field name="TYPE">azurerm_virtual_machine</field></block>
+      <block type="terraform_resource"><field name="TYPE">azurerm_network_security_group</field></block>
+      <block type="terraform_resource"><field name="TYPE">azurerm_virtual_network</field></block>
+      <block type="terraform_resource"><field name="TYPE">azurerm_subnet</field></block>
+      <block type="terraform_resource"><field name="TYPE">azurerm_resource_group</field></block>
     </category>
     <category name="GCP Resources" colour="#4285F4">
-        <block type="terraform_resource"><field name="TYPE">google_compute_instance</field></block>
-        <block type="terraform_resource"><field name="TYPE">google_compute_firewall</field></block>
-        <block type="terraform_resource"><field name="TYPE">google_compute_network</field></block>
-        <block type="terraform_resource"><field name="TYPE">google_compute_subnetwork</field></block>
-        <block type="terraform_resource"><field name="TYPE">google_storage_bucket</field></block>
+      <block type="terraform_resource"><field name="TYPE">google_compute_instance</field></block>
+      <block type="terraform_resource"><field name="TYPE">google_compute_firewall</field></block>
+      <block type="terraform_resource"><field name="TYPE">google_compute_network</field></block>
+      <block type="terraform_resource"><field name="TYPE">google_compute_subnetwork</field></block>
+      <block type="terraform_resource"><field name="TYPE">google_storage_bucket</field></block>
     </category>
     <category name="Aviatrix Resources" colour="#E50914">
-        <block type="terraform_resource"><field name="TYPE">aviatrix_account</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_vpc</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_transit_gateway</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_spoke_gateway</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_gateway</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_spoke_transit_attachment</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_transit_peer</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_site2cloud</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_transit_external_device_conn</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_vgw_conn</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_firenet</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_firewall_instance</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_firewall_policy</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn</field></block>
-        <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn_tag_rule</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_account</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_vpc</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_transit_gateway</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_spoke_gateway</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_gateway</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_spoke_transit_attachment</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_transit_peer</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_site2cloud</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_transit_external_device_conn</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_vgw_conn</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_firenet</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_firewall_instance</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_firewall_policy</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn_tag_rule</field></block>
     </category>
     <category name="Logic & Attributes" colour="#5ba55b">
-        <block type="terraform_attribute"></block>
-        <block type="terraform_nested_block"><field name="NAME">ingress</field></block>
-        <block type="terraform_nested_block"><field name="NAME">tags</field></block>
+      <block type="terraform_attribute"></block>
+      <block type="terraform_nested_block"><field name="NAME">ingress</field></block>
+      <block type="terraform_nested_block"><field name="NAME">tags</field></block>
     </category>
   </xml>`;
 
@@ -93,8 +93,27 @@
     toolboxContainer.innerHTML = toolboxXml;
     const toolbox = toolboxContainer.firstElementChild as HTMLElement;
 
+    const darkTheme = Blockly.Theme.defineTheme("dark", {
+      name: "dark",
+      base: Blockly.Themes.Classic,
+      componentStyles: {
+        workspaceBackgroundColour: "#14161c",
+        toolboxBackgroundColour: "#0f1115",
+        toolboxForegroundColour: "#e0e0e0",
+        flyoutBackgroundColour: "#1a1d24",
+        flyoutForegroundColour: "#e0e0e0",
+        flyoutOpacity: 1,
+        scrollbarColour: "#333",
+        insertionMarkerColour: "#fff",
+        insertionMarkerOpacity: 0.3,
+        scrollbarOpacity: 0.8,
+        cursorColour: "#d0d0d0",
+      },
+    });
+
     workspace = Blockly.inject("blocklyDiv", {
       toolbox: toolbox,
+      theme: darkTheme,
       scrollbars: true,
       trashcan: true,
       zoom: {

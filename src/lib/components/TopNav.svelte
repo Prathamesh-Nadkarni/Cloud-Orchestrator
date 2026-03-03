@@ -17,9 +17,20 @@
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
   import CostBreakdown from "./CostBreakdown.svelte";
-  import { simulateDataFlow, type Vulnerability, type SimulationResult, type ImportedDCF } from "$lib/utils/securitySimulator";
+  import {
+    simulateDataFlow,
+    type Vulnerability,
+    type SimulationResult,
+    type ImportedDCF,
+  } from "$lib/utils/securitySimulator";
+  import { parseCanvas } from "$lib/generators/index.js";
 
-  let { nodes = $bindable(), edges = $bindable(), currentView = $bindable(), onSimulationComplete = () => {} } = $props();
+  let {
+    nodes = $bindable(),
+    edges = $bindable(),
+    currentView = $bindable(),
+    onSimulationComplete = () => {},
+  } = $props();
   let isGenerating = $state(false);
   let showResult = $state(false);
   let generatedCode = $state("");
@@ -60,62 +71,66 @@
     isGenerating = true;
     try {
       // Run data flow simulation
-      simulationResult = simulateDataFlow(nodes, edges, importedDCF || undefined);
+      simulationResult = simulateDataFlow(
+        nodes,
+        edges,
+        importedDCF || undefined,
+      );
 
       // Highlight edges dynamically based on simulation result
       edges = edges.map((edge: any) => {
-        const isVulnerable = simulationResult!.vulnerabilities.some(v => v.edgeId === edge.id);
+        const isVulnerable = simulationResult!.vulnerabilities.some(
+          (v) => v.edgeId === edge.id,
+        );
         const isSimulated = simulationResult!.simulatedEdges.includes(edge.id);
         const isBlocked = simulationResult!.blockedEdges.includes(edge.id);
-        
+
         if (isBlocked) {
           return {
             ...edge,
-            style: "stroke: #ea580c; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;",
+            style:
+              "stroke: #ea580c; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;",
             animated: false,
           };
         } else if (isVulnerable) {
           return {
             ...edge,
-            style: "stroke: #ff4444; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8));",
+            style:
+              "stroke: #ff4444; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8));",
             animated: true,
           };
         } else if (isSimulated) {
           return {
             ...edge,
-            style: "stroke: #3b82f6; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.8));",
+            style:
+              "stroke: #3b82f6; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.8));",
             animated: true,
           };
         } else {
-           return {
-             ...edge,
-             style: "stroke: var(--text-color); stroke-width: 2;",
-             animated: false,
-           }
+          return {
+            ...edge,
+            style: "stroke: var(--text-color); stroke-width: 2;",
+            animated: false,
+          };
         }
       });
 
       if (onSimulationComplete) {
-         onSimulationComplete(edges);
+        onSimulationComplete(edges);
       }
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodes, edges }),
-      });
+      const data = parseCanvas(nodes, edges);
 
-      const data = await response.json();
-      if (data.code || data.k8s) {
-        generatedCode = data.code || "";
-        generatedK8s = data.k8s || "";
+      if (data.terraform || data.kubernetes) {
+        generatedCode = data.terraform || "";
+        generatedK8s = data.kubernetes || "";
         activeTab = data.hasK8sOnly ? "kubernetes" : "terraform";
         showResult = true;
       } else {
-        alert("Failed to generate code: " + (data.error || "Unknown error"));
+        alert("Failed to generate code.");
       }
     } catch (err) {
-      alert("Error connecting to the generation API.");
+      alert("Error generating manifests.");
     } finally {
       isGenerating = false;
     }
@@ -207,7 +222,9 @@
         try {
           const content = e.target?.result as string;
           importedDCF = JSON.parse(content);
-          alert(`Successfully loaded DCF Policy profile with ${importedDCF?.policies.length} rules.`);
+          alert(
+            `Successfully loaded DCF Policy profile with ${importedDCF?.policies.length} rules.`,
+          );
         } catch (error) {
           alert("Error parsing DCF Policy JSON file");
           console.error(error);
@@ -483,21 +500,35 @@
               class:active={activeTab === "security"}
               onclick={() => (activeTab = "security")}
             >
-              <AlertTriangle size={14} style="display:inline; margin-right:4px; vertical-align:text-bottom; color: {simulationResult.vulnerabilities.length > 0 ? '#ff4444' : '#3b82f6'};" /> 
+              <AlertTriangle
+                size={14}
+                style="display:inline; margin-right:4px; vertical-align:text-bottom; color: {simulationResult
+                  .vulnerabilities.length > 0
+                  ? '#ff4444'
+                  : '#3b82f6'};"
+              />
               Simulation Report ({simulationResult.vulnerabilities.length} Issues)
             </button>
           {/if}
         </div>
         <div class="modal-actions">
           {#if activeTab !== "security"}
-            <button class="icon-btn" onclick={copyCode} title="Copy to clipboard">
+            <button
+              class="icon-btn"
+              onclick={copyCode}
+              title="Copy to clipboard"
+            >
               {#if copied}
                 <Check size={18} color="var(--accent-primary)" />
               {:else}
                 <Copy size={18} />
               {/if}
             </button>
-            <button class="icon-btn" onclick={downloadCode} title="Download code">
+            <button
+              class="icon-btn"
+              onclick={downloadCode}
+              title="Download code"
+            >
               <Download size={18} />
             </button>
           {/if}
@@ -506,55 +537,90 @@
       </div>
       <div class="code-container">
         {#if activeTab === "security"}
-           <div class="security-report">
-             <h3>Data Flow Simulation Report</h3>
-             <p class="summary-text">The simulation provenance graph evaluated the network flow. Safe routed data flows are highlighted in <strong style="color: #3b82f6">BLUE</strong>. Vulnerable routes have been highlighted in <strong style="color: #ff4444">RED</strong> on the canvas. Traffic dropped by Aviatrix DCF is shown in <strong style="color: #ea580c">ORANGE</strong>.</p>
-             
-             {#if importedDCF}
-                <div class="dcf-banner">
-                  <Shield size={16} />
-                  <span><strong>{importedDCF.policies.length}</strong> External DCF Policies are actively enforcing routes.</span>
+          <div class="security-report">
+            <h3>Data Flow Simulation Report</h3>
+            <p class="summary-text">
+              The simulation provenance graph evaluated the network flow. Safe
+              routed data flows are highlighted in <strong
+                style="color: #3b82f6">BLUE</strong
+              >. Vulnerable routes have been highlighted in
+              <strong style="color: #ff4444">RED</strong>
+              on the canvas. Traffic dropped by Aviatrix DCF is shown in
+              <strong style="color: #ea580c">ORANGE</strong>.
+            </p>
+
+            {#if importedDCF}
+              <div class="dcf-banner">
+                <Shield size={16} />
+                <span
+                  ><strong>{importedDCF.policies.length}</strong> External DCF Policies
+                  are actively enforcing routes.</span
+                >
+              </div>
+            {/if}
+
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span
+                  class="metric-value {simulationResult?.vulnerabilities.filter(
+                    (v) => v.severity === 'high',
+                  ).length
+                    ? 'error'
+                    : 'success'}"
+                  >{simulationResult?.vulnerabilities.filter(
+                    (v) => v.severity === "high",
+                  ).length}</span
+                >
+                <span class="metric-label">High Risk Vulnerabilities</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-value warning"
+                  >{simulationResult?.blockedEdges.length}</span
+                >
+                <span class="metric-label">Flows Blocked by DCF</span>
+              </div>
+            </div>
+
+            <button class="view-canvas-btn" onclick={closeResult}>
+              <Network size={16} /> View Provenance Graph on Canvas
+            </button>
+
+            <div class="vuln-list">
+              {#each simulationResult?.vulnerabilities || [] as vuln}
+                <div
+                  class="vuln-card"
+                  class:blocked-card={vuln.severity === "low"}
+                >
+                  <div class="vuln-header">
+                    {#if vuln.severity === "low"}
+                      <Shield size={18} color="#ea580c" />
+                    {:else}
+                      <AlertTriangle size={18} color="#ff4444" />
+                    {/if}
+                    <h4>{vuln.title}</h4>
+                    <span class="severity-badge {vuln.severity}"
+                      >{vuln.severity === "low"
+                        ? "INFO"
+                        : vuln.severity.toUpperCase()}</span
+                    >
+                  </div>
+                  <p>{vuln.description}</p>
                 </div>
-             {/if}
-
-             <div class="metrics-grid">
-               <div class="metric-card">
-                 <span class="metric-value {simulationResult?.vulnerabilities.filter(v => v.severity === 'high').length ? 'error' : 'success'}">{simulationResult?.vulnerabilities.filter(v => v.severity === 'high').length}</span>
-                 <span class="metric-label">High Risk Vulnerabilities</span>
-               </div>
-               <div class="metric-card">
-                 <span class="metric-value warning">{simulationResult?.blockedEdges.length}</span>
-                 <span class="metric-label">Flows Blocked by DCF</span>
-               </div>
-             </div>
-
-             <button class="view-canvas-btn" onclick={closeResult}>
-                <Network size={16} /> View Provenance Graph on Canvas
-             </button>
-
-             <div class="vuln-list">
-               {#each simulationResult?.vulnerabilities || [] as vuln}
-                 <div class="vuln-card" class:blocked-card={vuln.severity === 'low'}>
-                   <div class="vuln-header">
-                      {#if vuln.severity === 'low'}
-                        <Shield size={18} color="#ea580c" />
-                      {:else}
-                        <AlertTriangle size={18} color="#ff4444" />
-                      {/if}
-                      <h4>{vuln.title}</h4>
-                      <span class="severity-badge {vuln.severity}">{vuln.severity === 'low' ? 'INFO' : vuln.severity.toUpperCase()}</span>
-                   </div>
-                   <p>{vuln.description}</p>
-                 </div>
-               {/each}
-               {#if simulationResult?.vulnerabilities.length === 0}
-                 <div class="safe-card">
-                   <Check size={24} color="#10b981" style="margin-right: 12px;"/>
-                   <p style="margin:0; font-weight: 500; color: #10b981">No insecure data flows found. Simulation paths look secure.</p>
-                 </div>
-               {/if}
-             </div>
-           </div>
+              {/each}
+              {#if simulationResult?.vulnerabilities.length === 0}
+                <div class="safe-card">
+                  <Check
+                    size={24}
+                    color="#10b981"
+                    style="margin-right: 12px;"
+                  />
+                  <p style="margin:0; font-weight: 500; color: #10b981">
+                    No insecure data flows found. Simulation paths look secure.
+                  </p>
+                </div>
+              {/if}
+            </div>
+          </div>
         {:else}
           <pre><code
               >{activeTab === "terraform" ? generatedCode : generatedK8s}</code
@@ -616,13 +682,11 @@
     background-size: 16px;
     padding-right: 36px;
   }
-  
+
   .title-dropdown:hover {
     background-color: rgba(255, 255, 255, 0.05);
     border-color: var(--border-color);
   }
-
-
 
   .cost-badge {
     margin-left: 20px;
@@ -871,7 +935,7 @@
     font-size: 1.25rem;
     color: #ff4444;
   }
-  
+
   .vuln-count {
     font-weight: 800;
   }
@@ -894,7 +958,7 @@
     border-radius: 8px;
     padding: 16px;
   }
-  
+
   .blocked-card {
     background: rgba(234, 88, 12, 0.05);
     border-color: rgba(234, 88, 12, 0.2);

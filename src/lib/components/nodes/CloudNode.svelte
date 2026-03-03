@@ -276,7 +276,8 @@
   :global(.handle) {
     background: var(--bg-dark);
     border: 2px solid var(--node-accent);
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
+    z-index: 100;
   }
 </style>

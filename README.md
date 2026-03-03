@@ -2,7 +2,7 @@
 
 A powerful, visual drag-and-drop tool to design Multi-Cloud Architectures and automatically generate production-ready Infrastructure as Code (Terraform) and Kubernetes Manifests.
 
-![Demo](.github/demo.png)
+![Demo]([.github/demo.png](https://prathamesh-nadkarni.github.io/Cloud-Orchestrator/))
 
 ## Overview
 

@@ -218,6 +218,18 @@
       data,
     };
 
+    // Set initial dimensions for containers to enable resizing baseline
+    if (["vpc", "vnet"].includes(type)) {
+      newNode.width = 800;
+      newNode.height = 600;
+    } else if (["subnet", "kubernetes"].includes(type)) {
+      newNode.width = 450;
+      newNode.height = 350;
+    } else if (["securityGroup", "networkGroup", "k8sNode"].includes(type)) {
+      newNode.width = 250;
+      newNode.height = 180;
+    }
+
     let canNest = false;
     if (parentContainer && !["vpc", "vnet"].includes(type)) {
       if (type === "kubernetes") {

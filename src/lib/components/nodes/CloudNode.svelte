@@ -96,8 +96,8 @@
         : sizingLevel === 3
           ? 120
           : 80}
-    handleStyle="border: 1px solid var(--node-accent); background: var(--bg-dark); width: 8px; height: 8px; border-radius: 2px;"
-    lineStyle="border-color: var(--node-accent); border-width: 1px;"
+    handleStyle="border: 22px solid transparent; background: transparent; width: 12px; height: 12px; border-radius: 3px; z-index: 50;"
+    lineStyle="border-color: var(--node-accent); border-width: 2px; z-index: 49;"
   />
   <Handle
     type="target"
@@ -151,34 +151,45 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
-    min-width: 160px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s;
+    transition:
+      box-shadow 0.2s,
+      border-color 0.2s;
     font-family: var(--font-sans);
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
   }
 
-  /* Styling for nested containers with relative sizing */
+  /* Styling for nested containers */
   .container-node {
     background: rgba(20, 22, 28, 0.3);
     border: 2px dashed rgba(255, 255, 255, 0.2);
-    display: flex;
-    flex-direction: column;
+  }
+
+  /* Default/Minimum sizes only when not being constrained by parent or resizer */
+  .cloud-node:not([style*="width"]) {
+    min-width: 160px;
+    min-height: 80px;
   }
 
   /* Level 1: Root Containers (VPC/VNet) */
-  .cloud-node[data-level="1"] {
+  .cloud-node[data-level="1"]:not([style*="width"]) {
     width: 800px;
     height: 600px;
   }
 
   /* Level 2: Mid-tier Containers (Subnets/Clusters) */
-  .cloud-node[data-level="2"] {
+  .cloud-node[data-level="2"]:not([style*="width"]) {
     width: 450px;
     height: 350px;
   }
 
   /* Level 3: Small Containers (Security Groups / K8s Nodes) */
-  .cloud-node[data-level="3"] {
+  .cloud-node[data-level="3"]:not([style*="width"]) {
     width: 250px;
     height: 180px;
   }

@@ -19,6 +19,7 @@
   import AlertDialog from "$lib/components/AlertDialog.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import TerraformConverter from "$lib/components/TerraformConverter.svelte";
+  import TutorialOverlay from "$lib/components/TutorialOverlay.svelte";
   import { writable, get } from "svelte/store";
 
   interface CloudNodeData extends Record<string, unknown> {
@@ -49,6 +50,7 @@
   // Current view toggle
   let currentView = $state("orchestrator");
   let viewMode = $state("2d");
+  let showTutorial = $state(false);
 
   // Context Menu State
   let contextMenuOpen = $state(false);
@@ -573,6 +575,7 @@
     bind:edges
     bind:currentView
     bind:viewMode
+    bind:showTutorial
     onSimulationComplete={(newEdges: AppEdge[]) => {
       edges = [...newEdges];
     }}
@@ -660,6 +663,11 @@
     title={confirmTitle}
     message={confirmMsg}
     onConfirm={() => pendingAction?.()}
+  />
+
+  <TutorialOverlay
+    isOpen={showTutorial}
+    onClose={() => (showTutorial = false)}
   />
 </div>
 

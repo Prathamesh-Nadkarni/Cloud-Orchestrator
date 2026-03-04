@@ -15,6 +15,7 @@
     AlertTriangle,
     Shield,
     Box,
+    HelpCircle,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
   import CostBreakdown from "./CostBreakdown.svelte";
@@ -31,6 +32,7 @@
     edges = $bindable(),
     currentView = $bindable(),
     viewMode = $bindable("2d"),
+    showTutorial = $bindable(false),
     onSimulationComplete = () => {},
   } = $props();
   let isGenerating = $state(false);
@@ -424,6 +426,13 @@
       <LayoutTemplate size={16} /> Template
     </button>
     <div class="divider"></div>
+    <button
+      class="action-btn"
+      onclick={() => (showTutorial = true)}
+      title="Show Tutorial"
+    >
+      <HelpCircle size={16} /> Tutorial
+    </button>
     <button
       class="action-btn"
       class:active={viewMode === "3d"}

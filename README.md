@@ -16,15 +16,17 @@ Instead of writing hundreds of lines of Terraform, you simply:
 
 ## Features
 
-- **Multi-Cloud Support**: Drag and drop resources from AWS, Azure, and Google Cloud, along with Aviatrix transit elements and Kubernetes environments.
-- **Hierarchical Nesting**: Visually nest resources (e.g., place an EC2 instance inside a Subnet, inside a VPC). The generator correctly interprets these bounds and associates the nested IDs.
-- **Smart Edge Routing**: Connect resources with directional arrows. Click any edge to configure specific Protocols (TCP, UDP, HTTP, HTTPS) and Ports.
+- **Multi-Cloud Support**: Drag and drop resources across AWS, Azure, Google Cloud, and localized Kubernetes environments, along with external entities like On-Premise Datacenters and the Public Internet.
+- **Hierarchical Nesting**: Visually nest resources (e.g., place a Subnet inside a VNet, and an AKS Cluster inside that Subnet). The layout correctly maps these parent-child relationships for deployments.
+- **Smart Edge Routing & Styling**: Connect resources with directional arrows that dynamically adapt to show the connection type. Protocols (TCP, UDP, HTTP, HTTPS) trigger specific color accents, dashed styles, and inline native labels (e.g., `TCP : 443`).
+- **Multi-Cloud Governance Rules**: The system organically enforces architectural logic—preventing direct cross-CSP links without an Aviatrix Transit Gateway and safeguarding Kubernetes scopes.
+- **Advanced Canvas Scaling**: Analyze massive enterprise networks with deep dynamic zoom capabilities spanning structurally out to `0.05x` scale, or tight inwards to `16.0x`.
+- **Terraform Converter View**: Switch to a custom dark-themed Blockly workspace to visually construct, read, or manage raw Terraform logic via visual interlocking structures.
 - **Dual Code Generation**:
   - Automatically writes `main.tf` Terraform code, including dynamically calculated Security Groups and Firewall rules mapped from visual edges.
   - Automatically writes `k8s.yaml` manifest code, converting graphical clusters and nodes into Deployments, Services, and strictly-governed `NetworkPolicy` restrictions.
-- **Local Browser State Management**: Save your architectural layout to `localStorage`, or export/import the blueprint as a `.json` configuration file.
-- **Image Export**: Capture your architecture visually as a PNG via the top navigation bar.
-- **Real-Time Cost Estimation**: Provides a rough projected monthly runtime cost as you expand compute profiles and instance sizes.
+- **Local Browser State Management**: Save your architectural layout to `localStorage`, or export/import the blueprint as a `.json` configuration file. Try importing one of the complex cross-CSP samples!
+- **Image Export & Cost Estimation**: Capture your architecture visually as a PNG via the top navigation bar, and view rough projected monthly runtime costs based on active instances.
 
 ## How to Run
 

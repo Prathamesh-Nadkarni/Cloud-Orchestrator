@@ -32,37 +32,44 @@
           const updatedEdge = { ...e, data: { ...e.data, [key]: value } };
 
           // Re-calculate visual styles
-          if (key === "protocol") {
-            switch (value) {
+          let strokeColor = "var(--text-main)";
+          let dashArray = "none";
+          let strokeWidth = 2;
+
+          if (updatedEdge.data.dcfAction === "deny") {
+            strokeColor = "#ea580c";
+            dashArray = "5 5";
+            updatedEdge.animated = false;
+          } else {
+            updatedEdge.animated = true;
+            switch (updatedEdge.data.protocol) {
               case "http":
-                updatedEdge.style =
-                  "stroke: #3b82f6; stroke-width: 2; stroke-dasharray: 5 5;";
+                strokeColor = "#3b82f6";
+                dashArray = "5 5";
                 break;
               case "https":
-                updatedEdge.style = "stroke: #10b981; stroke-width: 2;";
+                strokeColor = "#10b981";
                 break;
               case "tcp":
-                updatedEdge.style = "stroke: #f59e0b; stroke-width: 2;";
+                strokeColor = "#f59e0b";
                 break;
               case "udp":
-                updatedEdge.style =
-                  "stroke: #8b5cf6; stroke-width: 2; stroke-dasharray: 4 8;";
+                strokeColor = "#8b5cf6";
+                dashArray = "4 8";
                 break;
               default:
-                updatedEdge.style =
-                  "stroke: var(--text-color); stroke-width: 2;";
+                strokeColor = "var(--text-main)";
                 break;
             }
           }
 
-          if (key === "dcfAction" && value === "deny") {
-             // Preview styling for blocked edge, actual simulation might override this
-             updatedEdge.style = "stroke: #ea580c; stroke-width: 2; stroke-dasharray: 5 5;";
-             updatedEdge.animated = false;
-          } else if (key === "dcfAction" && value !== "deny") {
-             updatedEdge.style = "stroke: var(--text-color); stroke-width: 2;";
-             updatedEdge.animated = true;
-          }
+          updatedEdge.style = `stroke: ${strokeColor}; stroke-width: ${strokeWidth}; stroke-dasharray: ${dashArray};`;
+          updatedEdge.markerEnd = { type: "arrowclosed", color: strokeColor };
+
+          const protoLabel = (updatedEdge.data.protocol || "ALL").toUpperCase();
+          const portLabel = updatedEdge.data.port || "*";
+          updatedEdge.label = `${protoLabel} : ${portLabel}`;
+          updatedEdge.labelStyle = `fill: ${strokeColor}; font-weight: 600; font-size: 12px;`;
 
           return updatedEdge;
         }
@@ -352,8 +359,13 @@
         </div>
       {/if}
 
-      <div class="form-group" style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;">
-        <label for="dcf-action" style="color: var(--accent-avx);">Aviatrix DCF Enforcement</label>
+      <div
+        class="form-group"
+        style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;"
+      >
+        <label for="dcf-action" style="color: var(--accent-avx);"
+          >Aviatrix DCF Enforcement</label
+        >
         <select
           id="dcf-action"
           value={selectedEdge.data?.dcfAction || "none"}
@@ -363,8 +375,11 @@
           <option value="allow">Explicit Allow</option>
           <option value="deny">Explicit Deny (Drop Traffic)</option>
         </select>
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-          Simulate how Distributed Cloud Firewall policies affect the traffic flow between these nodes.
+        <p
+          style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;"
+        >
+          Simulate how Distributed Cloud Firewall policies affect the traffic
+          flow between these nodes.
         </p>
       </div>
     </div>

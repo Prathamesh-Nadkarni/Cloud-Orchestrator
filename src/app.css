@@ -34,7 +34,7 @@ body {
   overflow: hidden;
   height: 100vh;
   width: 100vw;
-  background-image: 
+  background-image:
     radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(249, 17, 110, 0.05) 0%, transparent 25%);
 }
@@ -53,13 +53,16 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-focus);
 }
@@ -71,6 +74,8 @@ body {
   --xy-connectionline-stroke-default: var(--accent-primary);
   --xy-handle-background-color-default: var(--bg-dark);
   --xy-handle-border-color-default: var(--border-focus);
+  --xy-edge-label-color: var(--text-main);
+  --xy-edge-label-bg-color: rgba(15, 17, 21, 0.85);
 }
 
 .svelte-flow__background {
@@ -87,6 +92,7 @@ button {
   transition: all 0.2s ease-in-out;
 }
 
-input, select {
+input,
+select {
   font-family: inherit;
 }

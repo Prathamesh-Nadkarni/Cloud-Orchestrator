@@ -44,6 +44,7 @@
   const selectedNode = writable<AppNode | null>(null);
   let nodes = $state<AppNode[]>([]);
   let edges = $state<AppEdge[]>([]);
+  let viewport = $state({ x: 0, y: 0, zoom: 1 });
 
   // Current view toggle
   let currentView = $state("orchestrator");
@@ -180,9 +181,15 @@
       data = { ...data, size: defaultKtSize, count: 3 };
     }
 
+    const canvasBounds = document
+      .querySelector(".canvas-wrapper")
+      ?.getBoundingClientRect();
+    const offsetX = canvasBounds ? canvasBounds.left : 280;
+    const offsetY = canvasBounds ? canvasBounds.top : 64;
+
     const position = {
-      x: event.clientX - 280,
-      y: event.clientY - 64,
+      x: (event.clientX - offsetX - viewport.x) / viewport.zoom,
+      y: (event.clientY - offsetY - viewport.y) / viewport.zoom,
     };
 
     // Determine if dropped inside a container
@@ -479,6 +486,9 @@
         style: "stroke: var(--text-main); stroke-width: 2;",
         markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-main)" },
         animated: true,
+        label: "ALL : *",
+        labelStyle:
+          "fill: var(--text-main); font-weight: 600; font-size: 12px;",
       },
     ];
   };
@@ -570,6 +580,7 @@
         <SvelteFlow
           bind:nodes
           bind:edges
+          bind:viewport
           {nodeTypes}
           fitView
           onnodeclick={onNodeClick}
@@ -581,6 +592,8 @@
           onconnect={handleConnect}
           colorMode="dark"
           class="glass-panel"
+          minZoom={0.05}
+          maxZoom={16}
         >
           <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
           <Controls />

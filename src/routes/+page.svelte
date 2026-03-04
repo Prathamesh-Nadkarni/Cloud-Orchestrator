@@ -763,11 +763,12 @@
 
   /* ========== 3D Isometric View ========== */
 
-  /* Transform only the internal nodes and edges layers. This preserves SvelteFlow's inline translate/scale on the viewport, keeping Pan and Zoom fully functional! */
-  .isometric :global(.svelte-flow__nodes),
-  .isometric :global(.svelte-flow__edges),
-  .isometric :global(.svelte-flow__background) {
-    transform: scale(1.45) rotateX(55deg) rotateZ(-45deg) !important;
+  /* Transform the entire SvelteFlow container as one unit.
+     Scale is increased to compensate for the visual shrinkage caused by
+     rotateX — this ensures the rotated plane fills the full viewport
+     with no empty corners. */
+  .isometric :global(.svelte-flow) {
+    transform: scale(1.8) rotateX(55deg) rotateZ(-45deg);
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;

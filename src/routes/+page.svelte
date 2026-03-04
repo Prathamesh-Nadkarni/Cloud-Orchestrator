@@ -717,14 +717,15 @@
     flex: 1;
     height: 100%;
     position: relative;
-    perspective: 2000px;
+    /* Removed perspective: 2000px so translation stays in 2 dimensions (Orthographic) */
   }
 
   /* ========== 3D Isometric View ========== */
 
   /* Transform only the internal nodes and edges layers. This preserves SvelteFlow's inline translate/scale on the viewport, keeping Pan and Zoom fully functional! */
   .isometric :global(.svelte-flow__nodes),
-  .isometric :global(.svelte-flow__edges) {
+  .isometric :global(.svelte-flow__edges),
+  .isometric :global(.svelte-flow__background) {
     transform: scale(1.45) rotateX(55deg) rotateZ(-45deg) !important;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -733,7 +734,7 @@
 
   /* ---- Shared pseudo-element base for all nodes in 3D mode ---- */
   .isometric :global(.cloud-node) {
-    transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* Removed transition interpolation to make dragging instantly responsive */
     border-radius: 4px !important;
   }
   .isometric :global(.cloud-node::before),

@@ -835,22 +835,32 @@
       color-mix(in srgb, var(--node-accent) 40%, transparent);
   }
 
-  /* ---- Edge label styling for vulnerability display ---- */
+  /* ---- Edge label styling — hidden by default, shown on hover ---- */
+  :global(.svelte-flow__edge-textbg),
+  :global(.svelte-flow__edge-text) {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
   :global(.svelte-flow__edge-textbg) {
-    fill: rgba(15, 17, 21, 0.92) !important;
+    fill: rgba(15, 17, 21, 0.95) !important;
     rx: 6;
     ry: 6;
-    stroke: rgba(255, 255, 255, 0.08);
+    stroke: rgba(255, 255, 255, 0.1);
     stroke-width: 1;
   }
 
   :global(.svelte-flow__edge-text) {
     font-size: 11px !important;
     font-weight: 600;
-    pointer-events: all;
   }
 
-  /* Make labels more visible on hover */
+  /* Show labels on hover */
+  :global(.svelte-flow__edge:hover .svelte-flow__edge-textbg),
+  :global(.svelte-flow__edge:hover .svelte-flow__edge-text) {
+    opacity: 1;
+  }
+
   :global(.svelte-flow__edge:hover .svelte-flow__edge-textbg) {
     fill: rgba(15, 17, 21, 0.98) !important;
     stroke: rgba(255, 255, 255, 0.2);

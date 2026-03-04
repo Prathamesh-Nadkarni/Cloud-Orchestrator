@@ -607,10 +607,9 @@
         ondragover={onDragOver}
         ondrop={onDrop}
         onmousemove={(e: MouseEvent) => {
-          let el = e.target as HTMLElement | null;
-          while (el && !el.classList?.contains("svelte-flow__edge")) {
-            el = el.parentElement;
-          }
+          const el = (e.target as HTMLElement)?.closest?.(
+            "[data-testid^='rf__edge-']",
+          ) as HTMLElement | null;
           if (el) {
             const testid = el.getAttribute("data-testid") || "";
             const edgeId = testid.replace("rf__edge-", "");
@@ -762,16 +761,19 @@
 
   .canvas-wrapper.isometric {
     overflow: hidden;
+    /* Match SvelteFlow dark theme background so rotated layer corners are invisible */
+    background: #0f1115;
   }
 
   /* ========== 3D Isometric View ========== */
 
-  /* Transform the entire SvelteFlow container as one unit.
-     Scale is increased to compensate for the visual shrinkage caused by
-     rotateX — this ensures the rotated plane fills the full viewport
-     with no empty corners. */
-  .isometric :global(.svelte-flow) {
-    transform: scale(2.5) rotateX(55deg) rotateZ(-45deg);
+  /* Transform only the internal rendering layers (nodes, edges, background grid).
+     This preserves SvelteFlow's zoom/pan viewport handler untouched.
+     The matching background color on canvas-wrapper hides corner gaps. */
+  .isometric :global(.svelte-flow__nodes),
+  .isometric :global(.svelte-flow__edges),
+  .isometric :global(.svelte-flow__background) {
+    transform: rotateX(55deg) rotateZ(-45deg) !important;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;

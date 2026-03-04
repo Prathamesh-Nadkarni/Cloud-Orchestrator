@@ -606,32 +606,6 @@
         class:isometric={viewMode === "3d"}
         ondragover={onDragOver}
         ondrop={onDrop}
-        onmousemove={(e: MouseEvent) => {
-          const el = (e.target as HTMLElement)?.closest?.(
-            "[data-testid^='rf__edge-']",
-          ) as HTMLElement | null;
-          if (el) {
-            const testid = el.getAttribute("data-testid") || "";
-            const edgeId = testid.replace("rf__edge-", "");
-            const edge = edges.find((ed: any) => ed.id === edgeId);
-            const tooltip = edge?.data?.vulnTooltip;
-            if (tooltip && typeof tooltip === "string") {
-              edgeTooltip = {
-                visible: true,
-                x: e.clientX,
-                y: e.clientY - 12,
-                text: tooltip as string,
-              };
-              return;
-            }
-          }
-          if (edgeTooltip.visible) {
-            edgeTooltip = { ...edgeTooltip, visible: false };
-          }
-        }}
-        onmouseleave={() => {
-          edgeTooltip = { ...edgeTooltip, visible: false };
-        }}
       >
         <SvelteFlow
           bind:nodes
@@ -646,6 +620,20 @@
           onnodecontextmenu={onNodeContextMenu}
           onconnect={handleConnect}
           onnodedragstop={handleNodeDragStop}
+          onedgepointerenter={({ edge, event }) => {
+            const tooltip = edge?.data?.vulnTooltip;
+            if (tooltip && typeof tooltip === "string" && tooltip !== "") {
+              edgeTooltip = {
+                visible: true,
+                x: (event as MouseEvent).clientX,
+                y: (event as MouseEvent).clientY - 15,
+                text: tooltip,
+              };
+            }
+          }}
+          onedgepointerleave={() => {
+            edgeTooltip = { ...edgeTooltip, visible: false };
+          }}
           colorMode="dark"
           class="glass-panel"
           minZoom={0.05}
@@ -761,19 +749,21 @@
 
   .canvas-wrapper.isometric {
     overflow: hidden;
-    /* Match SvelteFlow dark theme background so rotated layer corners are invisible */
-    background: #0f1115;
+    /* Match background exactly to hide the gaps behind the rotated grid.
+       No more white corners! */
+    background-color: #0f1115;
   }
 
   /* ========== 3D Isometric View ========== */
 
-  /* Transform only the internal rendering layers (nodes, edges, background grid).
-     This preserves SvelteFlow's zoom/pan viewport handler untouched.
-     The matching background color on canvas-wrapper hides corner gaps. */
+  /* Transform all layers syncronously. 
+     Scale(1.5) mathematically covers corner gaps for 45deg Z-rotation (sqrt 2 ≈ 1.414)
+     and compensates for the 55deg X-foreshortening (cos 55 ≈ 0.57) to make zoom
+     feel similar to 2D mode. Corners stay hidden by the matching $bg-dark. */
   .isometric :global(.svelte-flow__nodes),
   .isometric :global(.svelte-flow__edges),
   .isometric :global(.svelte-flow__background) {
-    transform: rotateX(55deg) rotateZ(-45deg) !important;
+    transform: scale(1.5) rotateX(55deg) rotateZ(-45deg) !important;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;

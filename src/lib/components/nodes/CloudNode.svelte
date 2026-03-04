@@ -77,7 +77,7 @@
 </script>
 
 <div
-  class="cloud-node {sizingLevel > 0 ? 'container-node' : ''}"
+  class="cloud-node {sizingLevel > 0 ? 'container-node' : 'resource-node'}"
   class:selected
   data-level={sizingLevel}
   style="--node-accent: var(--accent-{data.provider}); {width

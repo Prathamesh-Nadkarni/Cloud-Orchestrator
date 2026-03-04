@@ -693,109 +693,125 @@
     perspective: 2000px;
   }
 
-  /* 3D Isometric transforms */
-  .isometric :global(.svelte-flow__viewport) {
-    transform: rotateX(60deg) rotateZ(-45deg) !important;
-    transform-style: preserve-3d;
-    transform-origin: center center;
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
+  /* ========== 3D Isometric View ========== */
 
+  /* Smooth transition for entering/leaving isometric mode */
   .canvas-wrapper :global(.svelte-flow__viewport) {
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
   }
 
+  /* Tilt the entire Svelte Flow viewport to an isometric angle */
+  .isometric :global(.svelte-flow__viewport) {
+    transform: rotateX(55deg) rotateZ(-45deg) !important;
+    transform-origin: center center;
+    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  /* ---- Shared pseudo-element base for all nodes in 3D mode ---- */
   .isometric :global(.cloud-node) {
-    transform-style: preserve-3d;
-    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-    border-radius: 4px !important; /* Sharper corners for 3D blocks */
+    transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-radius: 4px !important;
   }
-
   .isometric :global(.cloud-node::before),
   .isometric :global(.cloud-node::after) {
     content: "";
     position: absolute;
+    display: block;
     pointer-events: none;
-    border-radius: 0;
-    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
   }
 
-  /* ================== RESOURCE BLOCKS (Tall Extrusion) ================== */
+  /* ================== RESOURCE NODES — Tall 3D Block ================== */
   .isometric :global(.resource-node) {
-    background: rgba(30, 35, 42, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    background: rgba(28, 32, 40, 0.97) !important;
     box-shadow:
-      inset 0 0 15px rgba(255, 255, 255, 0.1),
-      -20px 20px 25px rgba(0, 0, 0, 0.6) !important;
+      0 20px 40px -10px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   }
 
-  /* Left Depth Wall (Resource) */
+  /* Left wall — tall extrusion (skewY creates the visible side face) */
   .isometric :global(.resource-node::before) {
-    left: 0;
-    top: 0;
-    width: 50px; /* Depth */
+    top: 20px;
+    left: -20px;
+    width: 20px;
     height: 100%;
-    transform-origin: left;
-    transform: rotateY(90deg);
     background: linear-gradient(
-      270deg,
-      rgba(20, 24, 30, 1) 0%,
-      rgba(10, 12, 16, 1) 100%
+      to right,
+      rgba(12, 14, 18, 0.98),
+      rgba(22, 26, 32, 0.95)
     );
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: inset 0 -20px 30px rgba(0, 0, 0, 0.9);
+    transform: skewY(-45deg);
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  /* Bottom Depth Wall (Resource) */
+  /* Bottom floor — tall extrusion (skewX creates the visible bottom face) */
   .isometric :global(.resource-node::after) {
-    bottom: 0;
-    left: 0;
+    bottom: -20px;
+    left: -20px;
     width: 100%;
-    height: 50px; /* Depth */
-    transform-origin: bottom;
-    transform: rotateX(90deg);
+    height: 20px;
     background: linear-gradient(
-      0deg,
-      rgba(25, 30, 38, 1) 0%,
-      rgba(15, 18, 24, 1) 100%
+      to top,
+      rgba(8, 10, 14, 0.98),
+      rgba(18, 22, 28, 0.95)
     );
-    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow: inset -20px 0 30px rgba(0, 0, 0, 0.9);
+    transform: skewX(-45deg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  /* ================== CONTAINER PADS (Flat Extrusion) ================== */
+  /* Hover lift for resource blocks */
+  .isometric :global(.resource-node:hover) {
+    box-shadow:
+      0 28px 55px -10px rgba(0, 0, 0, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+
+  /* ================== CONTAINER NODES — Thin Flat Pad ================== */
   .isometric :global(.container-node) {
-    background: rgba(20, 24, 30, 0.85) !important;
+    background: rgba(16, 19, 24, 0.75) !important;
     border: 2px solid var(--node-accent) !important;
     box-shadow:
-      inset 0 0 30px rgba(255, 255, 255, 0.05),
-      -10px 10px 25px rgba(0, 0, 0, 0.5) !important;
+      0 8px 20px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   }
 
-  /* Left Depth Wall (Container) */
+  /* Left wall — thin pad extrusion */
   .isometric :global(.container-node::before) {
-    left: 0;
-    top: 0;
-    width: 15px; /* Short Depth */
+    top: 8px;
+    left: -8px;
+    width: 8px;
     height: 100%;
-    transform-origin: left;
-    transform: rotateY(90deg);
-    background: rgba(10, 12, 16, 0.95);
-    border-left: 2px solid rgba(255, 255, 255, 0.2);
-    border-bottom: 2px solid var(--node-accent);
+    background: linear-gradient(
+      to right,
+      rgba(8, 10, 14, 0.95),
+      rgba(14, 17, 22, 0.9)
+    );
+    transform: skewY(-45deg);
+    border-left: 2px solid
+      color-mix(in srgb, var(--node-accent) 50%, transparent);
   }
 
-  /* Bottom Depth Wall (Container) */
+  /* Bottom floor — thin pad extrusion */
   .isometric :global(.container-node::after) {
-    bottom: 0;
-    left: 0;
+    bottom: -8px;
+    left: -8px;
     width: 100%;
-    height: 15px; /* Short Depth */
-    transform-origin: bottom;
-    transform: rotateX(90deg);
-    background: rgba(15, 18, 24, 0.95);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-    border-left: 2px solid var(--node-accent);
+    height: 8px;
+    background: linear-gradient(
+      to top,
+      rgba(6, 8, 12, 0.95),
+      rgba(12, 15, 20, 0.9)
+    );
+    transform: skewX(-45deg);
+    border-bottom: 2px solid
+      color-mix(in srgb, var(--node-accent) 40%, transparent);
+  }
+
+  /* ---- Edge label adjustment in isometric ---- */
+  .isometric :global(.svelte-flow__edge-textbg) {
+    fill: rgba(15, 17, 21, 0.9) !important;
   }
 </style>

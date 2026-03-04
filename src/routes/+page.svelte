@@ -758,7 +758,10 @@
     flex: 1;
     height: 100%;
     position: relative;
-    /* Removed perspective: 2000px so translation stays in 2 dimensions (Orthographic) */
+  }
+
+  .canvas-wrapper.isometric {
+    overflow: hidden;
   }
 
   /* ========== 3D Isometric View ========== */
@@ -768,7 +771,7 @@
      rotateX — this ensures the rotated plane fills the full viewport
      with no empty corners. */
   .isometric :global(.svelte-flow) {
-    transform: scale(1.8) rotateX(55deg) rotateZ(-45deg);
+    transform: scale(2.5) rotateX(55deg) rotateZ(-45deg);
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;

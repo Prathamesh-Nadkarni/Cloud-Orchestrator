@@ -14,6 +14,7 @@
     ChevronRight,
     AlertTriangle,
     Shield,
+    Box,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
   import CostBreakdown from "./CostBreakdown.svelte";
@@ -29,6 +30,7 @@
     nodes = $bindable(),
     edges = $bindable(),
     currentView = $bindable(),
+    viewMode = $bindable("2d"),
     onSimulationComplete = () => {},
   } = $props();
   let isGenerating = $state(false);
@@ -420,6 +422,16 @@
       title="Load 3-Tier App Blueprint"
     >
       <LayoutTemplate size={16} /> Template
+    </button>
+    <div class="divider"></div>
+    <button
+      class="action-btn"
+      class:active={viewMode === "3d"}
+      onclick={() => (viewMode = viewMode === "2d" ? "3d" : "2d")}
+      title="Toggle 3D View"
+    >
+      <Box size={16} />
+      {viewMode === "3d" ? "2D View" : "3D View"}
     </button>
     <div class="divider"></div>
     <button class="action-btn" onclick={saveLayout} title="Save to Browser">

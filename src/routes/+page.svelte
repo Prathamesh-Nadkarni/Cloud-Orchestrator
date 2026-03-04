@@ -48,6 +48,7 @@
 
   // Current view toggle
   let currentView = $state("orchestrator");
+  let viewMode = $state("2d");
 
   // Context Menu State
   let contextMenuOpen = $state(false);
@@ -571,6 +572,7 @@
     bind:nodes
     bind:edges
     bind:currentView
+    bind:viewMode
     onSimulationComplete={(newEdges: AppEdge[]) => {
       edges = [...newEdges];
     }}
@@ -580,7 +582,12 @@
     <div class="workspace">
       <Sidebar />
 
-      <main class="canvas-wrapper" ondragover={onDragOver} ondrop={onDrop}>
+      <main
+        class="canvas-wrapper"
+        class:isometric={viewMode === "3d"}
+        ondragover={onDragOver}
+        ondrop={onDrop}
+      >
         <SvelteFlow
           bind:nodes
           bind:edges
@@ -675,5 +682,53 @@
     flex: 1;
     height: 100%;
     position: relative;
+    perspective: 2000px;
+  }
+
+  /* 3D Isometric transforms */
+  .isometric :global(.svelte-flow__viewport) {
+    transform: rotateX(60deg) rotateZ(-45deg) !important;
+    transform-style: preserve-3d;
+    transform-origin: center center;
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .canvas-wrapper :global(.svelte-flow__viewport) {
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .isometric :global(.cloud-node) {
+    transform-style: preserve-3d;
+    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow:
+      -5px 5px 0px 0px rgba(10, 11, 15, 0.9),
+      -10px 10px 20px 0px rgba(0, 0, 0, 0.5);
+  }
+
+  .isometric :global(.cloud-node::before) {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 100%;
+    left: -10px;
+    top: 5px;
+    transform: skewY(-45deg);
+    background: rgba(0, 0, 0, 0.3);
+    z-index: -1;
+    border-radius: 8px 0 0 8px;
+  }
+
+  .isometric :global(.cloud-node::after) {
+    content: "";
+    position: absolute;
+    height: 10px;
+    width: 100%;
+    bottom: -10px;
+    left: -5px;
+    transform: skewX(-45deg);
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+    border-radius: 0 0 8px 8px;
   }
 </style>

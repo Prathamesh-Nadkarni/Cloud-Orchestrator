@@ -724,13 +724,32 @@
                     (v) => v.severity === "high",
                   ).length}</span
                 >
-                <span class="metric-label">High Risk Vulnerabilities</span>
+                <span class="metric-label">High Risk</span>
+              </div>
+              <div class="metric-card">
+                <span
+                  class="metric-value {simulationResult?.vulnerabilities.filter(
+                    (v) => v.severity === 'medium',
+                  ).length
+                    ? 'warning'
+                    : 'success'}"
+                  >{simulationResult?.vulnerabilities.filter(
+                    (v) => v.severity === "medium",
+                  ).length}</span
+                >
+                <span class="metric-label">Medium Risk</span>
               </div>
               <div class="metric-card">
                 <span class="metric-value warning"
                   >{simulationResult?.blockedEdges.length}</span
                 >
-                <span class="metric-label">Flows Blocked by DCF</span>
+                <span class="metric-label">DCF Blocked</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-value success"
+                  >{simulationResult?.simulatedEdges.length}</span
+                >
+                <span class="metric-label">Flows Scanned</span>
               </div>
             </div>
 
@@ -743,10 +762,13 @@
                 <div
                   class="vuln-card"
                   class:blocked-card={vuln.severity === "low"}
+                  class:medium-card={vuln.severity === "medium"}
                 >
                   <div class="vuln-header">
                     {#if vuln.severity === "low"}
                       <Shield size={18} color="#ea580c" />
+                    {:else if vuln.severity === "medium"}
+                      <AlertTriangle size={18} color="#f59e0b" />
                     {:else}
                       <AlertTriangle size={18} color="#ff4444" />
                     {/if}
@@ -1115,6 +1137,11 @@
   .blocked-card {
     background: rgba(234, 88, 12, 0.05);
     border-color: rgba(234, 88, 12, 0.2);
+  }
+
+  .medium-card {
+    background: rgba(245, 158, 11, 0.05);
+    border-color: rgba(245, 158, 11, 0.2);
   }
 
   .safe-card {

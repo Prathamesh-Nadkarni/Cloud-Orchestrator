@@ -1,0 +1,136 @@
+{
+    "nodes": [
+        {
+            "id": "az-vnet-prod",
+            "type": "cloud",
+            "position": {
+                "x": 80,
+                "y": 80
+            },
+            "data": {
+                "type": "vnet",
+                "name": "prod-vnet",
+                "provider": "azure",
+                "label": "Production VNet",
+                "cidr": "172.16.0.0/16"
+            },
+            "measured": {
+                "width": 600,
+                "height": 500
+            }
+        },
+        {
+            "id": "az-subnet-app",
+            "type": "cloud",
+            "position": {
+                "x": 40,
+                "y": 80
+            },
+            "parentId": "az-vnet-prod",
+            "data": {
+                "type": "subnet",
+                "name": "app-subnet",
+                "provider": "azure",
+                "label": "App Subnet",
+                "cidr": "172.16.1.0/24"
+            },
+            "measured": {
+                "width": 250,
+                "height": 300
+            }
+        },
+        {
+            "id": "az-aks-cluster",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "az-subnet-app",
+            "data": {
+                "type": "kubernetes",
+                "name": "prod-aks",
+                "provider": "azure",
+                "label": "AKS Cluster",
+                "size": "Standard_D2s_v3",
+                "count": 3
+            },
+            "measured": {
+                "width": 180,
+                "height": 80
+            }
+        },
+        {
+            "id": "az-subnet-db",
+            "type": "cloud",
+            "position": {
+                "x": 320,
+                "y": 80
+            },
+            "parentId": "az-vnet-prod",
+            "data": {
+                "type": "subnet",
+                "name": "db-subnet",
+                "provider": "azure",
+                "label": "Database Subnet",
+                "cidr": "172.16.2.0/24"
+            },
+            "measured": {
+                "width": 230,
+                "height": 300
+            }
+        },
+        {
+            "id": "az-db-vm",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "az-subnet-db",
+            "data": {
+                "type": "compute",
+                "name": "sql-server-vm",
+                "provider": "azure",
+                "label": "SQL Server VM",
+                "size": "Standard_D4s_v3"
+            }
+        },
+        {
+            "id": "ext-internet",
+            "type": "cloud",
+            "position": {
+                "x": 300,
+                "y": 650
+            },
+            "data": {
+                "type": "internet",
+                "name": "public-internet",
+                "provider": "external",
+                "label": "Public Internet"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-inet-aks",
+            "source": "ext-internet",
+            "target": "az-aks-cluster",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-aks-db",
+            "source": "az-aks-cluster",
+            "target": "az-db-vm",
+            "data": {
+                "protocol": "tcp",
+                "port": "1433"
+            },
+            "animated": true
+        }
+    ]
+}

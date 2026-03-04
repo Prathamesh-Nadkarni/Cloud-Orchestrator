@@ -1,0 +1,239 @@
+{
+    "nodes": [
+        {
+            "id": "aws-vpc-prod",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 50
+            },
+            "data": {
+                "type": "vpc",
+                "name": "production-vpc",
+                "provider": "aws",
+                "label": "Production VPC",
+                "cidr": "10.0.0.0/16"
+            },
+            "measured": {
+                "width": 900,
+                "height": 550
+            }
+        },
+        {
+            "id": "aws-sub-public",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "aws-vpc-prod",
+            "data": {
+                "type": "subnet",
+                "name": "public-subnet",
+                "provider": "aws",
+                "label": "Public Subnet",
+                "cidr": "10.0.1.0/24"
+            },
+            "measured": {
+                "width": 250,
+                "height": 350
+            }
+        },
+        {
+            "id": "aws-web-1",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "aws-sub-public",
+            "data": {
+                "type": "compute",
+                "name": "web-server-1",
+                "provider": "aws",
+                "label": "Web Server 1",
+                "size": "t3.medium"
+            }
+        },
+        {
+            "id": "aws-web-2",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 190
+            },
+            "parentId": "aws-sub-public",
+            "data": {
+                "type": "compute",
+                "name": "web-server-2",
+                "provider": "aws",
+                "label": "Web Server 2",
+                "size": "t3.medium"
+            }
+        },
+        {
+            "id": "aws-sub-app",
+            "type": "cloud",
+            "position": {
+                "x": 310,
+                "y": 80
+            },
+            "parentId": "aws-vpc-prod",
+            "data": {
+                "type": "subnet",
+                "name": "app-subnet",
+                "provider": "aws",
+                "label": "Application Subnet",
+                "cidr": "10.0.2.0/24"
+            },
+            "measured": {
+                "width": 250,
+                "height": 350
+            }
+        },
+        {
+            "id": "aws-app-1",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "aws-sub-app",
+            "data": {
+                "type": "compute",
+                "name": "app-server-1",
+                "provider": "aws",
+                "label": "App Server",
+                "size": "m5.large"
+            }
+        },
+        {
+            "id": "aws-sub-db",
+            "type": "cloud",
+            "position": {
+                "x": 600,
+                "y": 80
+            },
+            "parentId": "aws-vpc-prod",
+            "data": {
+                "type": "subnet",
+                "name": "db-subnet",
+                "provider": "aws",
+                "label": "Database Subnet",
+                "cidr": "10.0.3.0/24"
+            },
+            "measured": {
+                "width": 250,
+                "height": 350
+            }
+        },
+        {
+            "id": "aws-rds-1",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "aws-sub-db",
+            "data": {
+                "type": "database",
+                "name": "primary-rds",
+                "provider": "aws",
+                "label": "Primary RDS",
+                "size": "db.r5.large"
+            }
+        },
+        {
+            "id": "aws-rds-2",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 190
+            },
+            "parentId": "aws-sub-db",
+            "data": {
+                "type": "database",
+                "name": "replica-rds",
+                "provider": "aws",
+                "label": "Read Replica",
+                "size": "db.r5.large"
+            }
+        },
+        {
+            "id": "ext-internet",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 680
+            },
+            "data": {
+                "type": "internet",
+                "name": "public-internet",
+                "provider": "external",
+                "label": "Public Internet"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-inet-web1",
+            "source": "ext-internet",
+            "target": "aws-web-1",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-inet-web2",
+            "source": "ext-internet",
+            "target": "aws-web-2",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-web1-app",
+            "source": "aws-web-1",
+            "target": "aws-app-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "8080"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-web2-app",
+            "source": "aws-web-2",
+            "target": "aws-app-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "8080"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-app-rds",
+            "source": "aws-app-1",
+            "target": "aws-rds-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-rds-replica",
+            "source": "aws-rds-1",
+            "target": "aws-rds-2",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432"
+            },
+            "animated": true
+        }
+    ]
+}

@@ -668,6 +668,19 @@
   <TutorialOverlay
     isOpen={showTutorial}
     onClose={() => (showTutorial = false)}
+    onLoadSample={async (name) => {
+      try {
+        const basePath = import.meta.env.BASE_URL || "/";
+        const res = await fetch(`${basePath}samples/${name}.json`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const layout = await res.json();
+        nodes = layout.nodes || [];
+        edges = layout.edges || [];
+      } catch (err) {
+        console.error("Failed to load sample:", err);
+        alert("Failed to load sample scenario.");
+      }
+    }}
   />
 </div>
 

@@ -16,6 +16,7 @@
     Shield,
     Box,
     HelpCircle,
+    FileCode,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
   import CostBreakdown from "./CostBreakdown.svelte";
@@ -214,6 +215,130 @@
         alert("Failed to import layout: Invalid JSON.");
       }
       event.target.value = null;
+    };
+    reader.readAsText(file);
+  }
+
+  function importTerraform(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const newNodes: any[] = [];
+        const newEdges: any[] = [];
+        let xPos = 100;
+        let yPos = 100;
+
+        // Parse resource blocks: resource "type" "name" {}
+        const resourceRegex =
+          /resource\s+"([^"]+)"\s+"([^"]+)"\s*\{([^}]*)\}/gs;
+        let match;
+        while ((match = resourceRegex.exec(content)) !== null) {
+          const [, resourceType, resourceName, body] = match;
+          let nodeType = "compute";
+          let provider = "aws";
+          let label = resourceName;
+
+          if (resourceType.startsWith("aws_")) provider = "aws";
+          else if (resourceType.startsWith("azurerm_")) provider = "azure";
+          else if (resourceType.startsWith("google_")) provider = "gcp";
+
+          if (
+            resourceType.includes("vpc") ||
+            resourceType.includes("virtual_network")
+          )
+            nodeType = "vpc";
+          else if (resourceType.includes("subnet")) nodeType = "subnet";
+          else if (
+            resourceType.includes("instance") ||
+            resourceType.includes("vm")
+          )
+            nodeType = "compute";
+          else if (
+            resourceType.includes("db") ||
+            resourceType.includes("sql") ||
+            resourceType.includes("rds")
+          )
+            nodeType = "database";
+          else if (
+            resourceType.includes("security_group") ||
+            resourceType.includes("firewall")
+          )
+            nodeType = "securityGroup";
+          else if (
+            resourceType.includes("kubernetes") ||
+            resourceType.includes("eks") ||
+            resourceType.includes("aks") ||
+            resourceType.includes("gke")
+          )
+            nodeType = "kubernetes";
+          else if (
+            resourceType.includes("storage") ||
+            resourceType.includes("s3") ||
+            resourceType.includes("blob")
+          )
+            nodeType = "storage";
+          else if (
+            resourceType.includes("load_balancer") ||
+            resourceType.includes("lb")
+          )
+            nodeType = "loadBalancer";
+
+          if (provider === "azure" && nodeType === "vpc") nodeType = "vnet";
+
+          // Extract CIDR from body if present
+          let cidr: string | undefined;
+          const cidrMatch =
+            body.match(/cidr_block\s*=\s*"([^"]+)"/) ||
+            body.match(/address_space\s*=\s*\["([^"]+)"\]/) ||
+            body.match(/ip_cidr_range\s*=\s*"([^"]+)"/);
+          if (cidrMatch) cidr = cidrMatch[1];
+
+          // Extract instance type if present
+          let size: string | undefined;
+          const sizeMatch =
+            body.match(/instance_type\s*=\s*"([^"]+)"/) ||
+            body.match(/vm_size\s*=\s*"([^"]+)"/) ||
+            body.match(/machine_type\s*=\s*"([^"]+)"/);
+          if (sizeMatch) size = sizeMatch[1];
+
+          const nodeData: any = {
+            type: nodeType,
+            label: resourceName,
+            provider,
+            name: resourceName,
+          };
+          if (cidr) nodeData.cidr = cidr;
+          if (size) nodeData.size = size;
+
+          newNodes.push({
+            id: `tf-${resourceName}-${Date.now()}-${newNodes.length}`,
+            type: "cloud",
+            position: { x: xPos, y: yPos },
+            data: nodeData,
+          });
+
+          xPos += 250;
+          if (xPos > 900) {
+            xPos = 100;
+            yPos += 200;
+          }
+        }
+
+        if (newNodes.length === 0) {
+          alert("No resource blocks found in this .tf file.");
+        } else {
+          nodes = newNodes;
+          edges = newEdges;
+          alert(`Imported ${newNodes.length} resources from Terraform file.`);
+        }
+      } catch (err) {
+        alert("Failed to parse Terraform file.");
+        console.error(err);
+      }
+      (event.target as HTMLInputElement).value = "";
     };
     reader.readAsText(file);
   }
@@ -455,6 +580,13 @@
     <label class="action-btn file-import-btn" title="Import JSON">
       <FileUp size={16} /> JSON
       <input type="file" accept=".json" onchange={importLayout} />
+    </label>
+    <label
+      class="action-btn file-import-btn"
+      title="Import Terraform File (.tf)"
+    >
+      <FileCode size={16} color="#8b5cf6" /> .tf
+      <input type="file" accept=".tf" onchange={importTerraform} />
     </label>
     <label class="action-btn file-import-btn" title="Import DCF Policies">
       <Shield size={16} color="var(--accent-avx)" /> DCF

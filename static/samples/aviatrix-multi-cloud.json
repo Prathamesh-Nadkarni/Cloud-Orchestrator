@@ -1,0 +1,239 @@
+{
+    "nodes": [
+        {
+            "id": "aws-vpc-us",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 80
+            },
+            "data": {
+                "type": "vpc",
+                "name": "aws-us-east-vpc",
+                "provider": "aws",
+                "label": "AWS US-East VPC",
+                "cidr": "10.10.0.0/16"
+            },
+            "measured": {
+                "width": 350,
+                "height": 300
+            }
+        },
+        {
+            "id": "aws-sub-us",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "aws-vpc-us",
+            "data": {
+                "type": "subnet",
+                "name": "us-app-subnet",
+                "provider": "aws",
+                "label": "App Subnet",
+                "cidr": "10.10.1.0/24"
+            },
+            "measured": {
+                "width": 280,
+                "height": 160
+            }
+        },
+        {
+            "id": "aws-ec2-us",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 60
+            },
+            "parentId": "aws-sub-us",
+            "data": {
+                "type": "compute",
+                "name": "api-gateway",
+                "provider": "aws",
+                "label": "API Gateway EC2",
+                "size": "m5.large"
+            }
+        },
+        {
+            "id": "avx-transit",
+            "type": "cloud",
+            "position": {
+                "x": 500,
+                "y": 200
+            },
+            "data": {
+                "type": "transit",
+                "name": "aviatrix-backbone",
+                "provider": "aviatrix",
+                "label": "Aviatrix Transit Hub"
+            }
+        },
+        {
+            "id": "az-vnet-eu",
+            "type": "cloud",
+            "position": {
+                "x": 800,
+                "y": 80
+            },
+            "data": {
+                "type": "vnet",
+                "name": "azure-eu-west-vnet",
+                "provider": "azure",
+                "label": "Azure EU-West VNet",
+                "cidr": "172.20.0.0/16"
+            },
+            "measured": {
+                "width": 350,
+                "height": 300
+            }
+        },
+        {
+            "id": "az-sub-eu",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 80
+            },
+            "parentId": "az-vnet-eu",
+            "data": {
+                "type": "subnet",
+                "name": "eu-app-subnet",
+                "provider": "azure",
+                "label": "App Subnet",
+                "cidr": "172.20.1.0/24"
+            },
+            "measured": {
+                "width": 280,
+                "height": 160
+            }
+        },
+        {
+            "id": "az-vm-eu",
+            "type": "cloud",
+            "position": {
+                "x": 30,
+                "y": 60
+            },
+            "parentId": "az-sub-eu",
+            "data": {
+                "type": "compute",
+                "name": "backend-vm",
+                "provider": "azure",
+                "label": "Backend VM",
+                "size": "Standard_D4s_v3"
+            }
+        },
+        {
+            "id": "gcp-vpc-ap",
+            "type": "cloud",
+            "position": {
+                "x": 450,
+                "y": 500
+            },
+            "data": {
+                "type": "vpc",
+                "name": "gcp-asia-vpc",
+                "provider": "gcp",
+                "label": "GCP Asia VPC",
+                "cidr": "192.168.0.0/16"
+            },
+            "measured": {
+                "width": 350,
+                "height": 200
+            }
+        },
+        {
+            "id": "gcp-compute-ap",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 80
+            },
+            "parentId": "gcp-vpc-ap",
+            "data": {
+                "type": "compute",
+                "name": "ml-worker",
+                "provider": "gcp",
+                "label": "ML Worker Instance",
+                "size": "n1-highmem-8"
+            }
+        },
+        {
+            "id": "ext-onprem",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 500
+            },
+            "data": {
+                "type": "onprem",
+                "name": "corporate-dc",
+                "provider": "external",
+                "label": "Corporate Data Center"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-aws-avx",
+            "source": "aws-vpc-us",
+            "target": "avx-transit",
+            "data": {
+                "protocol": "all",
+                "port": "*"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-avx-az",
+            "source": "avx-transit",
+            "target": "az-vnet-eu",
+            "data": {
+                "protocol": "all",
+                "port": "*"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-avx-gcp",
+            "source": "avx-transit",
+            "target": "gcp-vpc-ap",
+            "data": {
+                "protocol": "all",
+                "port": "*"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-onprem-avx",
+            "source": "ext-onprem",
+            "target": "avx-transit",
+            "data": {
+                "protocol": "tcp",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-api-backend",
+            "source": "aws-ec2-us",
+            "target": "az-vm-eu",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        },
+        {
+            "id": "e-api-ml",
+            "source": "aws-ec2-us",
+            "target": "gcp-compute-ap",
+            "data": {
+                "protocol": "tcp",
+                "port": "8443"
+            },
+            "animated": true
+        }
+    ]
+}

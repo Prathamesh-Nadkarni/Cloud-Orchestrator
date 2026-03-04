@@ -1,0 +1,171 @@
+{
+    "nodes": [
+        {
+            "id": "aws-vpc-1",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 100
+            },
+            "data": {
+                "type": "vpc",
+                "name": "aws-prod-vpc",
+                "provider": "aws",
+                "label": "Prod VPC",
+                "cidr": "10.10.0.0/16"
+            },
+            "measured": {
+                "width": 450,
+                "height": 400
+            }
+        },
+        {
+            "id": "aws-eks-1",
+            "type": "cloud",
+            "position": {
+                "x": 40,
+                "y": 80
+            },
+            "parentId": "aws-vpc-1",
+            "data": {
+                "type": "kubernetes",
+                "name": "aws-eks-prod",
+                "provider": "aws",
+                "label": "EKS Cluster",
+                "size": "m5.large",
+                "count": 3
+            },
+            "measured": {
+                "width": 180,
+                "height": 80
+            }
+        },
+        {
+            "id": "aws-subnet-1",
+            "type": "cloud",
+            "position": {
+                "x": 40,
+                "y": 200
+            },
+            "parentId": "aws-vpc-1",
+            "data": {
+                "type": "subnet",
+                "name": "aws-public-subnet",
+                "provider": "aws",
+                "label": "Public Subnet",
+                "cidr": "10.10.1.0/24"
+            },
+            "measured": {
+                "width": 200,
+                "height": 100
+            }
+        },
+        {
+            "id": "aws-compute-1",
+            "type": "cloud",
+            "position": {
+                "x": 20,
+                "y": 60
+            },
+            "parentId": "aws-subnet-1",
+            "data": {
+                "type": "compute",
+                "name": "aws-bastion",
+                "provider": "aws",
+                "label": "Bastion EC2",
+                "size": "t3.small"
+            }
+        },
+        {
+            "id": "avx-transit-1",
+            "type": "cloud",
+            "position": {
+                "x": 600,
+                "y": 250
+            },
+            "data": {
+                "type": "transit",
+                "name": "aviatrix-transit-hub",
+                "provider": "aviatrix",
+                "label": "Multi-Cloud Transit Backbone"
+            }
+        },
+        {
+            "id": "az-vnet-1",
+            "type": "cloud",
+            "position": {
+                "x": 900,
+                "y": 100
+            },
+            "data": {
+                "type": "vnet",
+                "name": "azure-prod-vnet",
+                "provider": "azure",
+                "label": "Production VNet",
+                "cidr": "172.16.0.0/16"
+            },
+            "measured": {
+                "width": 300,
+                "height": 300
+            }
+        },
+        {
+            "id": "az-vm-1",
+            "type": "cloud",
+            "position": {
+                "x": 50,
+                "y": 100
+            },
+            "parentId": "az-vnet-1",
+            "data": {
+                "type": "compute",
+                "name": "azure-db-vm",
+                "provider": "azure",
+                "label": "Database VM",
+                "size": "Standard_D2s_v3"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-vpc-transit",
+            "source": "aws-vpc-1",
+            "target": "avx-transit-1",
+            "data": {
+                "protocol": "all",
+                "port": "*"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-vnet-transit",
+            "source": "avx-transit-1",
+            "target": "az-vnet-1",
+            "data": {
+                "protocol": "all",
+                "port": "*"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-bastion-db",
+            "source": "aws-compute-1",
+            "target": "az-vm-1",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432"
+            },
+            "animated": true
+        },
+        {
+            "id": "edge-eks-db",
+            "source": "aws-eks-1",
+            "target": "az-vm-1",
+            "data": {
+                "protocol": "https",
+                "port": "443"
+            },
+            "animated": true
+        }
+    ]
+}

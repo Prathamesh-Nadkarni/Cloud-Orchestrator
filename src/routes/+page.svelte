@@ -701,34 +701,93 @@
   .isometric :global(.cloud-node) {
     transform-style: preserve-3d;
     transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-    box-shadow:
-      -5px 5px 0px 0px rgba(10, 11, 15, 0.9),
-      -10px 10px 20px 0px rgba(0, 0, 0, 0.5);
+    border-radius: 4px !important; /* Sharper corners for 3D blocks */
   }
 
-  .isometric :global(.cloud-node::before) {
-    content: "";
-    position: absolute;
-    width: 10px;
-    height: 100%;
-    left: -10px;
-    top: 5px;
-    transform: skewY(-45deg);
-    background: rgba(0, 0, 0, 0.3);
-    z-index: -1;
-    border-radius: 8px 0 0 8px;
-  }
-
+  .isometric :global(.cloud-node::before),
   .isometric :global(.cloud-node::after) {
     content: "";
     position: absolute;
-    height: 10px;
+    pointer-events: none;
+    border-radius: 0;
+    transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ================== RESOURCE BLOCKS (Tall Extrusion) ================== */
+  .isometric :global(.resource-node) {
+    background: rgba(30, 35, 42, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow:
+      inset 0 0 15px rgba(255, 255, 255, 0.1),
+      -20px 20px 25px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  /* Left Depth Wall (Resource) */
+  .isometric :global(.resource-node::before) {
+    left: 0;
+    top: 0;
+    width: 50px; /* Depth */
+    height: 100%;
+    transform-origin: left;
+    transform: rotateY(90deg);
+    background: linear-gradient(
+      270deg,
+      rgba(20, 24, 30, 1) 0%,
+      rgba(10, 12, 16, 1) 100%
+    );
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 -20px 30px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Bottom Depth Wall (Resource) */
+  .isometric :global(.resource-node::after) {
+    bottom: 0;
+    left: 0;
     width: 100%;
-    bottom: -10px;
-    left: -5px;
-    transform: skewX(-45deg);
-    background: rgba(0, 0, 0, 0.5);
-    z-index: -1;
-    border-radius: 0 0 8px 8px;
+    height: 50px; /* Depth */
+    transform-origin: bottom;
+    transform: rotateX(90deg);
+    background: linear-gradient(
+      0deg,
+      rgba(25, 30, 38, 1) 0%,
+      rgba(15, 18, 24, 1) 100%
+    );
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: inset -20px 0 30px rgba(0, 0, 0, 0.9);
+  }
+
+  /* ================== CONTAINER PADS (Flat Extrusion) ================== */
+  .isometric :global(.container-node) {
+    background: rgba(20, 24, 30, 0.85) !important;
+    border: 2px solid var(--node-accent) !important;
+    box-shadow:
+      inset 0 0 30px rgba(255, 255, 255, 0.05),
+      -10px 10px 25px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Left Depth Wall (Container) */
+  .isometric :global(.container-node::before) {
+    left: 0;
+    top: 0;
+    width: 15px; /* Short Depth */
+    height: 100%;
+    transform-origin: left;
+    transform: rotateY(90deg);
+    background: rgba(10, 12, 16, 0.95);
+    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 2px solid var(--node-accent);
+  }
+
+  /* Bottom Depth Wall (Container) */
+  .isometric :global(.container-node::after) {
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 15px; /* Short Depth */
+    transform-origin: bottom;
+    transform: rotateX(90deg);
+    background: rgba(15, 18, 24, 0.95);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    border-left: 2px solid var(--node-accent);
   }
 </style>

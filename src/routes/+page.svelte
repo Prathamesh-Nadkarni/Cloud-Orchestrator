@@ -620,13 +620,18 @@
           onnodecontextmenu={onNodeContextMenu}
           onconnect={handleConnect}
           onnodedragstop={handleNodeDragStop}
-          onedgepointerenter={({ edge, event }) => {
+          onedgepointerenter={(e) => {
+            const edge = e.edge;
             const tooltip = edge?.data?.vulnTooltip;
-            if (tooltip && typeof tooltip === "string" && tooltip !== "") {
+            if (
+              tooltip &&
+              typeof tooltip === "string" &&
+              tooltip.trim() !== ""
+            ) {
               edgeTooltip = {
                 visible: true,
-                x: (event as MouseEvent).clientX,
-                y: (event as MouseEvent).clientY - 15,
+                x: e.event.clientX,
+                y: e.event.clientY - 20,
                 text: tooltip,
               };
             }
@@ -639,7 +644,12 @@
           minZoom={0.05}
           maxZoom={16}
         >
-          <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
+          <Background
+            gap={24}
+            size={2}
+            bgColor="#0f1115"
+            patternColor="rgba(255, 255, 255, 0.08)"
+          />
           <Controls />
           <MiniMap
             nodeColor="var(--bg-panel-hover)"
@@ -757,13 +767,14 @@
   /* ========== 3D Isometric View ========== */
 
   /* Transform all layers syncronously. 
-     Scale(1.5) mathematically covers corner gaps for 45deg Z-rotation (sqrt 2 ≈ 1.414)
-     and compensates for the 55deg X-foreshortening (cos 55 ≈ 0.57) to make zoom
-     feel similar to 2D mode. Corners stay hidden by the matching $bg-dark. */
+     Scale(2.4) mathematically covers corner gaps for 45deg Z-rotation (sqrt 2 ≈ 1.414)
+     and compensates for the visual shrinking of rotateX(55deg) (1 / cos 55 ≈ 1.74).
+     This makes 3D mode appear at '1:1' size relative to 2D mode, ensuring zoom similarity.
+     Corners are hidden by the solid #0f1115 background. */
   .isometric :global(.svelte-flow__nodes),
   .isometric :global(.svelte-flow__edges),
   .isometric :global(.svelte-flow__background) {
-    transform: scale(1.5) rotateX(55deg) rotateZ(-45deg) !important;
+    transform: scale(2.4) rotateX(55deg) rotateZ(-45deg) !important;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;

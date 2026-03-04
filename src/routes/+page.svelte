@@ -53,6 +53,9 @@
   let showTutorial = $state(false);
   let importedDCF = $state(null);
 
+  // Edge hover tooltip state
+  let edgeTooltip = $state({ visible: false, x: 0, y: 0, text: "" });
+
   $effect(() => {
     // When returning to 2D mode, reset the viewport to prevent off-screen translation
     if (viewMode === "2d") {
@@ -603,6 +606,33 @@
         class:isometric={viewMode === "3d"}
         ondragover={onDragOver}
         ondrop={onDrop}
+        onmousemove={(e: MouseEvent) => {
+          let el = e.target as HTMLElement | null;
+          while (el && !el.classList?.contains("svelte-flow__edge")) {
+            el = el.parentElement;
+          }
+          if (el) {
+            const testid = el.getAttribute("data-testid") || "";
+            const edgeId = testid.replace("rf__edge-", "");
+            const edge = edges.find((ed: any) => ed.id === edgeId);
+            const tooltip = edge?.data?.vulnTooltip;
+            if (tooltip && typeof tooltip === "string") {
+              edgeTooltip = {
+                visible: true,
+                x: e.clientX,
+                y: e.clientY - 12,
+                text: tooltip as string,
+              };
+              return;
+            }
+          }
+          if (edgeTooltip.visible) {
+            edgeTooltip = { ...edgeTooltip, visible: false };
+          }
+        }}
+        onmouseleave={() => {
+          edgeTooltip = { ...edgeTooltip, visible: false };
+        }}
       >
         <SvelteFlow
           bind:nodes
@@ -629,6 +659,17 @@
             maskColor="rgba(0, 0, 0, 0.5)"
           />
         </SvelteFlow>
+
+        {#if edgeTooltip.visible}
+          <div
+            class="edge-tooltip"
+            style="left: {edgeTooltip.x}px; top: {edgeTooltip.y}px;"
+          >
+            {#each edgeTooltip.text.split("\n") as line}
+              <div>{line}</div>
+            {/each}
+          </div>
+        {/if}
       </main>
 
       <PropertyDrawer
@@ -835,38 +876,28 @@
       color-mix(in srgb, var(--node-accent) 40%, transparent);
   }
 
-  /* ---- Edge label styling — hidden by default, shown on hover ---- */
+  /* ---- Hide any SvelteFlow native edge labels (we use custom tooltip) ---- */
   :global(.svelte-flow__edge-textbg),
   :global(.svelte-flow__edge-text) {
-    opacity: 0;
-    transition: opacity 0.2s ease;
+    display: none !important;
   }
 
-  :global(.svelte-flow__edge-textbg) {
-    fill: rgba(15, 17, 21, 0.95) !important;
-    rx: 6;
-    ry: 6;
-    stroke: rgba(255, 255, 255, 0.1);
-    stroke-width: 1;
-  }
-
-  :global(.svelte-flow__edge-text) {
-    font-size: 11px !important;
+  /* ---- Custom edge hover tooltip ---- */
+  .edge-tooltip {
+    position: fixed;
+    z-index: 10000;
+    background: rgba(15, 17, 21, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: #fff;
+    font-size: 12px;
     font-weight: 600;
-  }
-
-  /* Show labels on hover */
-  :global(.svelte-flow__edge:hover .svelte-flow__edge-textbg),
-  :global(.svelte-flow__edge:hover .svelte-flow__edge-text) {
-    opacity: 1;
-  }
-
-  :global(.svelte-flow__edge:hover .svelte-flow__edge-textbg) {
-    fill: rgba(15, 17, 21, 0.98) !important;
-    stroke: rgba(255, 255, 255, 0.2);
-  }
-
-  .isometric :global(.svelte-flow__edge-textbg) {
-    fill: rgba(15, 17, 21, 0.9) !important;
+    line-height: 1.6;
+    max-width: 360px;
+    pointer-events: none;
+    transform: translate(-50%, -100%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
   }
 </style>

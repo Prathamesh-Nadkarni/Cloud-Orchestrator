@@ -94,16 +94,18 @@
         const isBlocked = simulationResult!.blockedEdges.includes(edge.id);
 
         // Build tooltip text from vulnerability titles
-        const vulnLabels = edgeVulns.map((v) => v.title).join(" · ");
+        const vulnLabels = edgeVulns.map((v) => v.title).join("\n");
 
         if (isBlocked) {
           const blockedVuln = edgeVulns.find((v) => v.severity === "low");
           return {
             ...edge,
-            label: blockedVuln
-              ? `🛡 ${blockedVuln.title}`
-              : "🛡 Blocked by DCF",
-            labelStyle: "fill: #ea580c; font-weight: 600; font-size: 11px;",
+            data: {
+              ...edge.data,
+              vulnTooltip: blockedVuln
+                ? `🛡 ${blockedVuln.title}`
+                : "🛡 Blocked by DCF",
+            },
             style:
               "stroke: #ea580c; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;",
             animated: false,
@@ -111,8 +113,7 @@
         } else if (isVulnerable) {
           return {
             ...edge,
-            label: `⚠ ${vulnLabels}`,
-            labelStyle: "fill: #ff4444; font-weight: 600; font-size: 11px;",
+            data: { ...edge.data, vulnTooltip: `⚠ ${vulnLabels}` },
             style:
               "stroke: #ff4444; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8));",
             animated: true,
@@ -120,8 +121,7 @@
         } else if (isSimulated) {
           return {
             ...edge,
-            label: "✓ Secure",
-            labelStyle: "fill: #10b981; font-weight: 600; font-size: 11px;",
+            data: { ...edge.data, vulnTooltip: "✓ Secure" },
             style:
               "stroke: #10b981; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.8));",
             animated: true,
@@ -129,7 +129,7 @@
         } else {
           return {
             ...edge,
-            label: "",
+            data: { ...edge.data, vulnTooltip: "" },
             style: "stroke: var(--text-main); stroke-width: 2;",
             animated: false,
           };

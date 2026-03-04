@@ -142,6 +142,23 @@
     edges = [...edges, ...newEdges];
   };
 
+  // Helper to calculate a node's true absolute canvas coordinates
+  const getAbsolutePos = (n: AppNode) => {
+    let x = n.position.x;
+    let y = n.position.y;
+    let curr = n;
+    while (curr.parentId) {
+      const parentId: string = curr.parentId;
+      const parent = nodes.find((p) => p.id === parentId);
+      if (parent) {
+        x += parent.position.x;
+        y += parent.position.y;
+        curr = parent;
+      } else break;
+    }
+    return { x, y };
+  };
+
   // Drag and Drop Logic
   const onDragOver = (event: DragEvent) => {
     event.preventDefault();
@@ -207,14 +224,15 @@
       ].includes(n.data.type);
       if (!isContainerType) return false;
 
+      const pAbs = getAbsolutePos(n);
       const width = n.measured?.width || 500;
       const height = n.measured?.height || 400;
 
       return (
-        position.x >= n.position.x &&
-        position.x <= n.position.x + width &&
-        position.y >= n.position.y &&
-        position.y <= n.position.y + height
+        position.x >= pAbs.x &&
+        position.x <= pAbs.x + width &&
+        position.y >= pAbs.y &&
+        position.y <= pAbs.y + height
       );
     });
 
@@ -300,9 +318,10 @@
     const finalizeDrop = () => {
       if (canNest && parentContainer) {
         newNode.parentId = parentContainer.id;
+        const pAbs = getAbsolutePos(parentContainer);
         newNode.position = {
-          x: position.x - parentContainer.position.x,
-          y: position.y - parentContainer.position.y,
+          x: position.x - pAbs.x,
+          y: position.y - pAbs.y,
         };
       }
       nodes = [...nodes, newNode];
@@ -334,22 +353,7 @@
     const absX = anyNode.positionAbsolute?.x ?? node.position.x;
     const absY = anyNode.positionAbsolute?.y ?? node.position.y;
 
-    // Helper to calculate a node's true absolute canvas coordinates
-    const getAbsolutePos = (n: AppNode) => {
-      let x = n.position.x;
-      let y = n.position.y;
-      let curr = n;
-      while (curr.parentId) {
-        const parentId: string = curr.parentId;
-        const parent = nodes.find((p) => p.id === parentId);
-        if (parent) {
-          x += parent.position.x;
-          y += parent.position.y;
-          curr = parent;
-        } else break;
-      }
-      return { x, y };
-    };
+    // Helper getAbsolutePos is now globally defined
 
     const parentContainer = [...nodes].reverse().find((n) => {
       if (n.type !== "cloud" || n.id === node.id) return false;

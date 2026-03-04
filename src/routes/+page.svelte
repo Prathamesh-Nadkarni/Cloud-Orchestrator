@@ -52,6 +52,15 @@
   let viewMode = $state("2d");
   let showTutorial = $state(false);
 
+  $effect(() => {
+    // When returning to 2D mode, reset the viewport to prevent off-screen translation
+    if (viewMode === "2d") {
+      setTimeout(() => {
+        viewport = { x: 100, y: 100, zoom: 0.8 };
+      }, 300);
+    }
+  });
+
   // Context Menu State
   let contextMenuOpen = $state(false);
   let contextMenuPos = $state({ x: 0, y: 0 });
@@ -231,11 +240,12 @@
       const width = n.measured?.width || 500;
       const height = n.measured?.height || 400;
 
+      const tol = 50; // Drop tolerance
       return (
-        position.x >= pAbs.x &&
-        position.x <= pAbs.x + width &&
-        position.y >= pAbs.y &&
-        position.y <= pAbs.y + height
+        position.x >= pAbs.x - tol &&
+        position.x <= pAbs.x + width + tol &&
+        position.y >= pAbs.y - tol &&
+        position.y <= pAbs.y + height + tol
       );
     });
 
@@ -377,11 +387,12 @@
       const nodeCenterX = absX + (node.measured?.width || 160) / 2;
       const nodeCenterY = absY + (node.measured?.height || 80) / 2;
 
+      const tol = 50;
       return (
-        nodeCenterX >= pAbs.x &&
-        nodeCenterX <= pAbs.x + width &&
-        nodeCenterY >= pAbs.y &&
-        nodeCenterY <= pAbs.y + height
+        nodeCenterX >= pAbs.x - tol &&
+        nodeCenterX <= pAbs.x + width + tol &&
+        nodeCenterY >= pAbs.y - tol &&
+        nodeCenterY <= pAbs.y + height + tol
       );
     });
 
@@ -591,31 +602,33 @@
         ondragover={onDragOver}
         ondrop={onDrop}
       >
-        <SvelteFlow
-          bind:nodes
-          bind:edges
-          bind:viewport
-          {nodeTypes}
-          fitView
-          onnodeclick={onNodeClick}
-          onedgeclick={onEdgeClick}
-          onpaneclick={onPaneClick}
-          onselectionchange={onSelectionChange}
-          onnodecontextmenu={onNodeContextMenu}
-          onnodedragstop={handleNodeDragStop}
-          onconnect={handleConnect}
-          colorMode="dark"
-          class="glass-panel"
-          minZoom={0.05}
-          maxZoom={16}
-        >
-          <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
-          <Controls />
-          <MiniMap
-            nodeColor="var(--bg-panel-hover)"
-            maskColor="rgba(0, 0, 0, 0.5)"
-          />
-        </SvelteFlow>
+        <div class="camera-layer">
+          <SvelteFlow
+            bind:nodes
+            bind:edges
+            bind:viewport
+            {nodeTypes}
+            fitView
+            onnodeclick={onNodeClick}
+            onedgeclick={onEdgeClick}
+            onpaneclick={onPaneClick}
+            onselectionchange={onSelectionChange}
+            onnodecontextmenu={onNodeContextMenu}
+            onconnect={handleConnect}
+            onnodedragstop={handleNodeDragStop}
+            colorMode="dark"
+            class="glass-panel"
+            minZoom={0.05}
+            maxZoom={16}
+          >
+            <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
+            <Controls />
+            <MiniMap
+              nodeColor="var(--bg-panel-hover)"
+              maskColor="rgba(0, 0, 0, 0.5)"
+            />
+          </SvelteFlow>
+        </div>
       </main>
 
       <PropertyDrawer
@@ -708,16 +721,17 @@
 
   /* ========== 3D Isometric View ========== */
 
-  /* Smooth transition for entering/leaving isometric mode */
-  .canvas-wrapper :global(.svelte-flow__viewport) {
+  /* Camera Layer wraps Svelte Flow entirely. Gives isometric perspective while retaining internal pan/zoom logic unharmed. */
+  .camera-layer {
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform-origin: center center;
   }
 
-  /* Tilt the entire Svelte Flow viewport to an isometric angle */
-  .isometric :global(.svelte-flow__viewport) {
-    transform: rotateX(55deg) rotateZ(-45deg) !important;
-    transform-origin: center center;
-    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  .canvas-wrapper.isometric .camera-layer {
+    transform: scale(1.45) rotateX(55deg) rotateZ(-45deg);
   }
 
   /* ---- Shared pseudo-element base for all nodes in 3D mode ---- */

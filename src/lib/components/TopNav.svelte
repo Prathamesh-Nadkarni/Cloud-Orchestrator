@@ -108,7 +108,7 @@
           return {
             ...edge,
             style:
-              "stroke: #3b82f6; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.8));",
+              "stroke: #10b981; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.8));",
             animated: true,
           };
         } else {
@@ -695,7 +695,7 @@
             <p class="summary-text">
               The simulation provenance graph evaluated the network flow. Safe
               routed data flows are highlighted in <strong
-                style="color: #3b82f6">BLUE</strong
+                style="color: #10b981">GREEN</strong
               >. Vulnerable routes have been highlighted in
               <strong style="color: #ff4444">RED</strong>
               on the canvas. Traffic dropped by Aviatrix DCF is shown in

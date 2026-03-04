@@ -63,8 +63,8 @@ export function simulateDataFlow(
     const simulatedEdges = new Set<string>();
     const blockedEdges = new Set<string>();
 
-    // Find entry points (internet nodes)
-    const internetNodes = nodes.filter((n) => n.data?.type === "internet");
+    // Find entry points (internet nodes and onprem datacenters)
+    const startNodes = nodes.filter((n) => n.data?.type === "internet" || n.data?.type === "onprem");
 
     // Create an adjacency list for easier traversal
     const adjList: Record<string, EdgeData[]> = {};
@@ -77,15 +77,15 @@ export function simulateDataFlow(
 
     // Basic graph traversal to find data flow paths and uncover vulnerabilities
     let queue: { nodeId: string; path: EdgeData[] }[] = [];
-    const visitedNodes = new Set<string>();
+    const visitedEdges = new Set<string>();
 
-    // Initialize queue with all internet endpoints
-    internetNodes.forEach((node) => {
+    // Initialize queue with all external endpoints
+    startNodes.forEach((node) => {
         queue.push({ nodeId: node.id, path: [] });
     });
 
-    // If no internet node, start from compute nodes to simulate internal data flow
-    if (internetNodes.length === 0) {
+    // If no external node, start from compute nodes to simulate internal data flow
+    if (startNodes.length === 0) {
         nodes.filter(n => n.data?.type === 'compute').forEach(node => {
             queue.push({ nodeId: node.id, path: [] });
         })
@@ -93,10 +93,8 @@ export function simulateDataFlow(
 
     while (queue.length > 0) {
         const { nodeId, path } = queue.shift()!;
-        if (visitedNodes.has(nodeId)) continue;
 
-        // Process current node
-        visitedNodes.add(nodeId);
+        // Add the path that led here to simulatedEdges
         path.forEach((e) => simulatedEdges.add(e.id));
 
         const currentNode = nodes.find(n => n.id === nodeId);
@@ -105,6 +103,9 @@ export function simulateDataFlow(
         const outgoingEdges = adjList[nodeId] || [];
 
         for (const edge of outgoingEdges) {
+            // Prevent infinite loops by blocking edge revisits instead of node revisits
+            if (visitedEdges.has(edge.id)) continue;
+            visitedEdges.add(edge.id);
             const targetNode = nodes.find((n) => n.id === edge.target);
             if (!targetNode) continue;
 
@@ -198,14 +199,17 @@ export function simulateDataFlow(
             }
 
             // 3. Permissive Ports (e.g. *, 0-65535, or SSH 22 open to internet)
-            if (currentNode?.data?.type === "internet" && (edge.data?.port === "*" || edge.data?.port === "22")) {
+            if ((currentNode?.data?.type === "internet" || currentNode?.data?.type === "onprem") && (edge.data?.port === "*" || edge.data?.port === "22")) {
                 vulnerabilities.push({
                     edgeId: edge.id,
                     title: "Overly Permissive Inbound Traffic",
-                    description: `Traffic from Internet is allowed on port ${edge.data?.port}. This exposes the node to broad attacks. Restrict ports to necessary services (e.g., 443).`,
+                    description: `Traffic from external source is allowed on port ${edge.data?.port}. This exposes the node to broad attacks. Restrict ports to necessary services (e.g., 443).`,
                     severity: "high"
                 });
             }
+
+            // Record edge natively as simulated before placing in queue
+            simulatedEdges.add(edge.id);
 
             // Queue the next node
             queue.push({ nodeId: targetNode.id, path: [...path, edge] });

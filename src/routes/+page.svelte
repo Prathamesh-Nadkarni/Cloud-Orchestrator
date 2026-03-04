@@ -51,6 +51,7 @@
   let currentView = $state("orchestrator");
   let viewMode = $state("2d");
   let showTutorial = $state(false);
+  let importedDCF = $state(null);
 
   $effect(() => {
     // When returning to 2D mode, reset the viewport to prevent off-screen translation
@@ -587,6 +588,7 @@
     bind:currentView
     bind:viewMode
     bind:showTutorial
+    bind:importedDCF
     onSimulationComplete={(newEdges: AppEdge[]) => {
       edges = [...newEdges];
     }}
@@ -689,6 +691,7 @@
         const layout = await res.json();
         nodes = layout.nodes || [];
         edges = layout.edges || [];
+        importedDCF = layout.dcf || null;
       } catch (err) {
         console.error("Failed to load sample:", err);
         alert("Failed to load sample scenario.");

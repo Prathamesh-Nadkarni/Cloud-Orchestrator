@@ -235,5 +235,55 @@
             },
             "animated": true
         }
-    ]
+    ],
+    "dcf": {
+        "smartGroups": [
+            {
+                "name": "API_Gateways",
+                "matchExpressions": [
+                    {
+                        "type": "nodeName",
+                        "operator": "contains",
+                        "value": "api"
+                    }
+                ]
+            },
+            {
+                "name": "ML_Workers",
+                "matchExpressions": [
+                    {
+                        "type": "nodeName",
+                        "operator": "contains",
+                        "value": "ml"
+                    }
+                ]
+            }
+        ],
+        "policies": [
+            {
+                "name": "Block Unencrypted ML Traffic",
+                "action": "DENY",
+                "protocol": "TCP",
+                "port": "8080",
+                "srcSmartGroups": [
+                    "ANY"
+                ],
+                "dstSmartGroups": [
+                    "ML_Workers"
+                ]
+            },
+            {
+                "name": "Allow Secured API to ML",
+                "action": "ALLOW",
+                "protocol": "TCP",
+                "port": "8443",
+                "srcSmartGroups": [
+                    "API_Gateways"
+                ],
+                "dstSmartGroups": [
+                    "ML_Workers"
+                ]
+            }
+        ]
+    }
 }

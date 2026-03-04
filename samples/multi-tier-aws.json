@@ -235,5 +235,43 @@
             },
             "animated": true
         }
-    ]
+    ],
+    "dcf": {
+        "smartGroups": [
+            {
+                "name": "Web_Servers",
+                "matchExpressions": [
+                    {
+                        "type": "nodeName",
+                        "operator": "contains",
+                        "value": "web"
+                    }
+                ]
+            },
+            {
+                "name": "Databases",
+                "matchExpressions": [
+                    {
+                        "type": "nodeName",
+                        "operator": "contains",
+                        "value": "rds"
+                    }
+                ]
+            }
+        ],
+        "policies": [
+            {
+                "name": "Block Web to DB Direct Access",
+                "action": "DENY",
+                "protocol": "TCP",
+                "port": "5432",
+                "srcSmartGroups": [
+                    "Web_Servers"
+                ],
+                "dstSmartGroups": [
+                    "Databases"
+                ]
+            }
+        ]
+    }
 }

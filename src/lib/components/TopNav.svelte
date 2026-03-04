@@ -34,6 +34,7 @@
     currentView = $bindable(),
     viewMode = $bindable("2d"),
     showTutorial = $bindable(false),
+    importedDCF = $bindable<ImportedDCF | null>(null),
     onSimulationComplete = () => {},
   } = $props();
   let isGenerating = $state(false);
@@ -46,7 +47,6 @@
 
   // Security Simulation State
   let simulationResult: SimulationResult | null = $state(null);
-  let importedDCF: ImportedDCF | null = $state(null);
   let estimatedCost = $derived(
     nodes.reduce((acc: number, node: any) => {
       let nodeCost = 0;

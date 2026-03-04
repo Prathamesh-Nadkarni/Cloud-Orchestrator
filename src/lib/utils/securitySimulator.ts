@@ -63,9 +63,6 @@ export function simulateDataFlow(
     const simulatedEdges = new Set<string>();
     const blockedEdges = new Set<string>();
 
-    // Find entry points (internet nodes and onprem datacenters)
-    const startNodes = nodes.filter((n) => n.data?.type === "internet" || n.data?.type === "onprem");
-
     // Create an adjacency list for easier traversal
     const adjList: Record<string, EdgeData[]> = {};
     nodes.forEach((n) => { adjList[n.id] = []; });
@@ -79,17 +76,10 @@ export function simulateDataFlow(
     let queue: { nodeId: string; path: EdgeData[] }[] = [];
     const visitedEdges = new Set<string>();
 
-    // Initialize queue with all external endpoints
-    startNodes.forEach((node) => {
+    // Initialize queue with all nodes to ensure no isolated subgraphs are missed
+    nodes.forEach((node) => {
         queue.push({ nodeId: node.id, path: [] });
     });
-
-    // If no external node, start from compute nodes to simulate internal data flow
-    if (startNodes.length === 0) {
-        nodes.filter(n => n.data?.type === 'compute').forEach(node => {
-            queue.push({ nodeId: node.id, path: [] });
-        })
-    }
 
     while (queue.length > 0) {
         const { nodeId, path } = queue.shift()!;

@@ -604,33 +604,31 @@
         ondragover={onDragOver}
         ondrop={onDrop}
       >
-        <div class="camera-layer">
-          <SvelteFlow
-            bind:nodes
-            bind:edges
-            bind:viewport
-            {nodeTypes}
-            fitView
-            onnodeclick={onNodeClick}
-            onedgeclick={onEdgeClick}
-            onpaneclick={onPaneClick}
-            onselectionchange={onSelectionChange}
-            onnodecontextmenu={onNodeContextMenu}
-            onconnect={handleConnect}
-            onnodedragstop={handleNodeDragStop}
-            colorMode="dark"
-            class="glass-panel"
-            minZoom={0.05}
-            maxZoom={16}
-          >
-            <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
-            <Controls />
-            <MiniMap
-              nodeColor="var(--bg-panel-hover)"
-              maskColor="rgba(0, 0, 0, 0.5)"
-            />
-          </SvelteFlow>
-        </div>
+        <SvelteFlow
+          bind:nodes
+          bind:edges
+          bind:viewport
+          {nodeTypes}
+          fitView
+          onnodeclick={onNodeClick}
+          onedgeclick={onEdgeClick}
+          onpaneclick={onPaneClick}
+          onselectionchange={onSelectionChange}
+          onnodecontextmenu={onNodeContextMenu}
+          onconnect={handleConnect}
+          onnodedragstop={handleNodeDragStop}
+          colorMode="dark"
+          class="glass-panel"
+          minZoom={0.05}
+          maxZoom={16}
+        >
+          <Background gap={24} size={2} bgColor="rgba(255, 255, 255, 0.05)" />
+          <Controls />
+          <MiniMap
+            nodeColor="var(--bg-panel-hover)"
+            maskColor="rgba(0, 0, 0, 0.5)"
+          />
+        </SvelteFlow>
       </main>
 
       <PropertyDrawer
@@ -724,17 +722,13 @@
 
   /* ========== 3D Isometric View ========== */
 
-  /* Camera Layer wraps Svelte Flow entirely. Gives isometric perspective while retaining internal pan/zoom logic unharmed. */
-  .camera-layer {
-    width: 100%;
-    height: 100%;
+  /* Transform only the internal nodes and edges layers. This preserves SvelteFlow's inline translate/scale on the viewport, keeping Pan and Zoom fully functional! */
+  .isometric :global(.svelte-flow__nodes),
+  .isometric :global(.svelte-flow__edges) {
+    transform: scale(1.45) rotateX(55deg) rotateZ(-45deg) !important;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center center;
-  }
-
-  .canvas-wrapper.isometric .camera-layer {
-    transform: scale(1.45) rotateX(55deg) rotateZ(-45deg);
   }
 
   /* ---- Shared pseudo-element base for all nodes in 3D mode ---- */

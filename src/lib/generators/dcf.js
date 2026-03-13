@@ -5,48 +5,50 @@
  */
 
 export function generateDCF(dcf) {
-    if (!dcf || (!dcf.smartGroups.length && !dcf.policies.length)) {
+    if (!dcf || (!dcf.smartGroups?.length && !dcf.policies?.length)) {
         return "";
     }
 
     let code = `\n# --- Aviatrix Distributed Cloud Firewall (DCF) ---\n\n`;
 
     // 1. Generate Smart Groups
-    dcf.smartGroups.forEach(sg => {
-        // Build the selector expression
-        // Format: match_expressions { type = "..." etc }
-        let matchExpressions = "";
+    if (dcf.smartGroups) {
+        dcf.smartGroups.forEach(sg => {
+            // Build the selector expression
+            // Format: match_expressions { type = "..." etc }
+            let matchExpressions = "";
 
-        if (sg.matchExpressions && sg.matchExpressions.length > 0) {
-            matchExpressions = sg.matchExpressions.map(expr => {
-                let exprCode = `  selector {\n    match_expressions {\n`;
-                exprCode += `      type = "${expr.type === 'tag' ? 'vm_tags' : expr.type === 'region' ? 'region' : 'vm_name'}"\n`;
+            if (sg.matchExpressions && sg.matchExpressions.length > 0) {
+                matchExpressions = sg.matchExpressions.map(expr => {
+                    let exprCode = `  selector {\n    match_expressions {\n`;
+                    exprCode += `      type = "${expr.type === 'tag' ? 'vm_tags' : expr.type === 'region' ? 'region' : 'vm_name'}"\n`;
 
-                if (expr.type === 'tag' && expr.key) {
-                    exprCode += `      tags = {\n        "${expr.key}" = "${expr.value}"\n      }\n`;
-                } else if (expr.type === 'region') {
-                    exprCode += `      region = "${expr.value}"\n`;
-                } else {
-                    // name match
-                    exprCode += `      name = "${expr.value}"\n`;
-                }
+                    if (expr.type === 'tag' && expr.key) {
+                        exprCode += `      tags = {\n        "${expr.key}" = "${expr.value}"\n      }\n`;
+                    } else if (expr.type === 'region') {
+                        exprCode += `      region = "${expr.value}"\n`;
+                    } else {
+                        // name match
+                        exprCode += `      name = "${expr.value}"\n`;
+                    }
 
-                exprCode += `    }\n  }\n`;
-                return exprCode;
-            }).join("");
-        } else {
-            // Default catch-all if no expressions (invalid for Aviatrix normally, but we put a placeholder)
-            matchExpressions = `  selector {\n    match_expressions {\n      type = "vm_name"\n      name = "*"\n    }\n  }\n`;
-        }
+                    exprCode += `    }\n  }\n`;
+                    return exprCode;
+                }).join("");
+            } else {
+                // Default catch-all if no expressions (invalid for Aviatrix normally, but we put a placeholder)
+                matchExpressions = `  selector {\n    match_expressions {\n      type = "vm_name"\n      name = "*"\n    }\n  }\n`;
+            }
 
-        code += `resource "aviatrix_smart_group" "${sg.name.replace(/[^a-zA-Z0-9_-]/g, '_')}" {\n`;
-        code += `  name = "${sg.name}"\n`;
-        code += matchExpressions;
-        code += `}\n\n`;
-    });
+            code += `resource "aviatrix_smart_group" "${sg.name.replace(/[^a-zA-Z0-9_-]/g, '_')}" {\n`;
+            code += `  name = "${sg.name}"\n`;
+            code += matchExpressions;
+            code += `}\n\n`;
+        });
+    }
 
     // 2. Generate Policy List
-    if (dcf.policies.length > 0) {
+    if (dcf.policies && dcf.policies.length > 0) {
         code += `resource "aviatrix_distributed_firewalling_policy_list" "main_dcf_policies" {\n`;
 
         dcf.policies.forEach((policy, index) => {
@@ -59,15 +61,15 @@ export function generateDCF(dcf) {
             // Actually, in our simple JSON we use UUIDs or string names.
             // If the SmartGroup was created above, we can reference it.
             // Since we use names as identifiers in our simplified model:
-            const srcGroups = policy.srcSmartGroups.map(id => {
-                const sg = dcf.smartGroups.find(g => g.uuid === id);
+            const srcGroups = policy.srcSmartGroups?.map(id => {
+                const sg = dcf.smartGroups?.find(g => g.uuid === id);
                 return sg ? `aviatrix_smart_group.${sg.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.uuid` : `"${id}"`;
-            }).join(', ');
+            }).join(', ') || "";
 
-            const dstGroups = policy.dstSmartGroups.map(id => {
-                const sg = dcf.smartGroups.find(g => g.uuid === id);
+            const dstGroups = policy.dstSmartGroups?.map(id => {
+                const sg = dcf.smartGroups?.find(g => g.uuid === id);
                 return sg ? `aviatrix_smart_group.${sg.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.uuid` : `"${id}"`;
-            }).join(', ');
+            }).join(', ') || "";
 
             code += `  policies {\n`;
             code += `    name     = "${policy.name}"\n`;

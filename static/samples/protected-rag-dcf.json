@@ -70,15 +70,20 @@
         }
     ],
     "dcf": {
-        "rules": [
+        "smartGroups": [],
+        "policies": [
             {
-                "id": "rule-1",
+                "uuid": "rule-1",
                 "name": "Allow AI Gateway to Feature Store",
                 "action": "permit",
                 "protocol": "https",
                 "port": "443",
-                "srcSmartGroup": "ai-gw",
-                "dstSmartGroup": "storage"
+                "srcSmartGroups": [
+                    "ai-gw"
+                ],
+                "dstSmartGroups": [
+                    "storage"
+                ]
             }
         ]
     }

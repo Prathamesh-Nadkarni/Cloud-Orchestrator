@@ -42,6 +42,9 @@ export function generateAWS(nodes, edges = []) {
       tf += `  cidr_block = "${data.cidr || '10.0.0.0/16'}"\n`;
       tf += `  enable_dns_support = true\n`;
       tf += `  enable_dns_hostnames = true\n`;
+      if (data.bgpAsn) {
+        tf += `  # Note: bgpAsn ${data.bgpAsn} recorded. Typically applied to VGW or TGW in AWS.\n`;
+      }
       tf += `  tags = {\n    Name = "${name}"\n  }\n}\n\n`;
     }
     else if (data.type === 'subnet') {
@@ -59,6 +62,10 @@ export function generateAWS(nodes, edges = []) {
       tf += `  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2\n`;
       tf += `  instance_type = "${data.size || 't2.micro'}"\n`;
       tf += `  subnet_id     = aws_subnet.${subnetName}.id\n`;
+
+      if (data.requiresHA) {
+        tf += `  # High Availability requested. Consider using Auto Scaling Groups instead of standalone instances.\n`;
+      }
 
       if (sgName) {
         tf += `  vpc_security_group_ids = [aws_security_group.${sgName}.id]\n`;

@@ -12,6 +12,7 @@
   import "@xyflow/svelte/dist/style.css";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import PropertyDrawer from "$lib/components/PropertyDrawer.svelte";
+  import type { ImportedDCF } from "$lib/utils/securitySimulator";
   import TopNav from "$lib/components/TopNav.svelte";
   import CloudNode from "$lib/components/nodes/CloudNode.svelte";
   import ContextMenu from "$lib/components/ContextMenu.svelte";
@@ -45,13 +46,15 @@
   const selectedNode = writable<AppNode | null>(null);
   let nodes = $state<AppNode[]>([]);
   let edges = $state<AppEdge[]>([]);
+  let showTutorial = $state(false);
+  let importedDCF = $state<ImportedDCF | null>(null);
+  let generatedCode = $state("");
+
   let viewport = $state({ x: 0, y: 0, zoom: 1 });
 
   // Current view toggle
   let currentView = $state("orchestrator");
   let viewMode = $state("2d");
-  let showTutorial = $state(false);
-  let importedDCF = $state(null);
 
   // Edge hover tooltip state
   let edgeTooltip = $state({ visible: false, x: 0, y: 0, text: "" });
@@ -592,6 +595,7 @@
     bind:viewMode
     bind:showTutorial
     bind:importedDCF
+    bind:generatedCode
     onSimulationComplete={(newEdges: AppEdge[]) => {
       edges = [...newEdges];
     }}
@@ -678,7 +682,7 @@
     </div>
   {:else}
     <div class="workspace">
-      <TerraformConverter />
+      <TerraformConverter bind:importedDCF {generatedCode} />
     </div>
   {/if}
 

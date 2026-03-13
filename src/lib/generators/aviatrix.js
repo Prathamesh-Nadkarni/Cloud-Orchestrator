@@ -52,7 +52,16 @@ export function generateAviatrix(nodes, edges = []) {
             tf += `  vpc_reg      = "${data.region || 'us-east-1'}"\n`;
             tf += `  gw_size      = "${data.size || 't3.small'}"\n`;
             tf += `  subnet       = "10.0.0.0/28"\n`;
-            tf += `  local_as_number = "${data.asn || 65000}"\n}\n\n`;
+            if (data.bgpAsn) {
+                tf += `  local_as_number = "${data.bgpAsn}"\n`;
+            } else {
+                tf += `  local_as_number = "${data.asn || 65000}"\n`;
+            }
+            if (data.requiresHA) {
+                tf += `  ha_subnet    = "10.0.0.16/28"\n`;
+                tf += `  ha_gw_size   = "${data.size || 't3.small'}"\n`;
+            }
+            tf += `}\n\n`;
         }
         else if (data.type === 'spoke') {
             tf += `resource "aviatrix_spoke_gateway" "${name}" {\n`;
@@ -64,7 +73,10 @@ export function generateAviatrix(nodes, edges = []) {
             tf += `  gw_size      = "${data.size || 't3.micro'}"\n`;
             tf += `  subnet       = "10.1.0.0/28"\n`;
             tf += `  transit_gw   = "transit-gw-reference"\n`; // Ideally wired via edges
-            if (data.ha) {
+            if (data.bgpAsn) {
+                tf += `  local_as_number = "${data.bgpAsn}"\n`;
+            }
+            if (data.requiresHA || data.ha) {
                 tf += `  ha_gw_size   = "${data.size || 't3.micro'}"\n`;
                 tf += `  ha_subnet    = "10.1.0.16/28"\n`;
             }

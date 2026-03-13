@@ -28,7 +28,7 @@ Instead of writing hundreds of lines of Terraform, you simply:
 - **Hover-based Vulnerability Labels**: For a clean workspace, security warnings appear only when you hover over affected network lines (edges). Interactive tooltips show specific risks like "⚠ Unencrypted Data Flow" or "🛡 Blocked by DCF Policy".
 - **Real-time Security Metrics**: The top navigation bar displays a live count of High-Risk, Medium-Risk, and DCF-Blocked flows detected in the current simulation.
 - **Advanced Canvas Scaling**: Zoom capabilities from `0.05x` to `16.0x` with viewport-aware drag-and-drop positioning.
-- **Terraform Converter View**: Switch to a custom dark-themed Blockly workspace to visually construct, read, or manage raw Terraform logic via visual interlocking structures.
+- **Terraform Blocks View**: Switch to a custom dark-themed Blockly workspace to visually construct, read, or manage raw Terraform logic via visual interlocking structures.
 - **Terraform File Import (.tf)**: Import your own `.tf` Terraform files directly. The parser extracts `resource` blocks and automatically creates canvas nodes with the correct provider, type, CIDR, and instance sizing.
 - **Dual Code Generation**:
   - Automatically writes `main.tf` Terraform code, including dynamically calculated Security Groups and Firewall rules mapped from visual edges.

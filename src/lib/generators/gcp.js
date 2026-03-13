@@ -40,7 +40,11 @@ export function generateGCP(nodes, edges = []) {
         if (data.type === 'vpc') {
             tf += `resource "google_compute_network" "${name}" {\n`;
             tf += `  name                    = "${name.replace(/_/g, '-')}-vpc"\n`;
-            tf += `  auto_create_subnetworks = false\n}\n\n`;
+            tf += `  auto_create_subnetworks = false\n`;
+            if (data.bgpAsn) {
+                tf += `  # Note: bgpAsn ${data.bgpAsn} recorded. Typically used in Cloud Router (google_compute_router).\n`;
+            }
+            tf += `}\n\n`;
         }
         else if (data.type === 'subnet') {
             const vpcName = resolveDependency(id, 'vpc') || 'main'; // fallback
@@ -60,7 +64,11 @@ export function generateGCP(nodes, edges = []) {
             tf += `  boot_disk {\n    initialize_params {\n      image = "debian-cloud/debian-11"\n`;
             if (data.disk) tf += `      size  = ${data.disk}\n`;
             tf += `    }\n  }\n`;
-            tf += `  network_interface {\n    network    = google_compute_network.${vpcName}.id\n    subnetwork = google_compute_subnetwork.${subnetName}.id\n  }\n}\n\n`;
+            tf += `  network_interface {\n    network    = google_compute_network.${vpcName}.id\n    subnetwork = google_compute_subnetwork.${subnetName}.id\n  }\n`;
+            if (data.requiresHA) {
+                tf += `  # High Availability requested. Consider using Managed Instance Groups (MIGs).\n`;
+            }
+            tf += `}\n\n`;
         }
         else if (data.type === 'firewall') {
             const vpcName = resolveDependency(id, 'vpc') || 'main';

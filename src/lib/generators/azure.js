@@ -45,7 +45,11 @@ export function generateAzure(nodes, edges = []) {
             tf += `  name                = "${name}-vnet"\n`;
             tf += `  location            = azurerm_resource_group.main.location\n`;
             tf += `  resource_group_name = azurerm_resource_group.main.name\n`;
-            tf += `  address_space       = ["${data.cidr || '10.0.0.0/16'}"]\n}\n\n`;
+            tf += `  address_space       = ["${data.cidr || '10.0.0.0/16'}"]\n`;
+            if (data.bgpAsn) {
+                tf += `  # Note: bgpAsn ${data.bgpAsn} recorded. Typically used on Virtual Network Gateways.\n`;
+            }
+            tf += `}\n\n`;
         }
         else if (data.type === 'subnet') {
             const vnetName = resolveDependency(id, 'vnet') || 'main'; // fallback
@@ -80,6 +84,9 @@ export function generateAzure(nodes, edges = []) {
             tf += `  network_interface_ids = [azurerm_network_interface.${name}_nic.id]\n`;
             if (data.disk) {
                 tf += `  os_disk {\n    caching              = "ReadWrite"\n    storage_account_type = "Standard_LRS"\n    disk_size_gb         = ${data.disk}\n  }\n`;
+            }
+            if (data.requiresHA) {
+                tf += `  # High Availability requested. Consider Virtual Machine Scale Sets or Availability Zones.\n`;
             }
             tf += `  source_image_reference {\n    publisher = "Canonical"\n    offer     = "UbuntuServer"\n    sku       = "18.04-LTS"\n    version   = "latest"\n  }\n}\n\n`;
         }

@@ -54,6 +54,24 @@
             desc: "Three CSPs (AWS, Azure, GCP) connected via Aviatrix backbone with on-prem datacenter.",
             tags: ["AWS", "Azure", "GCP", "Aviatrix"],
         },
+        {
+            id: "unsafe-ai",
+            title: "Unsecured AI Gateway",
+            desc: "Public AI Gateway bypassing authentication to access sensitive Vector DB and features.",
+            tags: ["AI", "Vulnerability", "Internet"],
+        },
+        {
+            id: "protected-rag-dcf",
+            title: "Protected AI Workload (DCF)",
+            desc: "The same AI scenario secured with deep Aviatrix DCF policies and redaction toggles.",
+            tags: ["AI", "DCF", "Secured"],
+        },
+        {
+            id: "multi-cloud-ai-capacity",
+            title: "Multi-Cloud Capacity Checks",
+            desc: "Highlights bandwidth, latency SLA, and routing bottlenecks across AWS and Azure AI workflows.",
+            tags: ["Capacity", "MultiCloud", "Egress"],
+        },
     ];
 </script>
 

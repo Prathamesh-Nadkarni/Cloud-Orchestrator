@@ -25,7 +25,10 @@
   import DCFBuilder from "./DCFBuilder.svelte";
   import type { ImportedDCF } from "$lib/utils/securitySimulator";
 
-  let { importedDCF = $bindable<ImportedDCF | null>(null) } = $props();
+  let {
+    importedDCF = $bindable<ImportedDCF | null>(null),
+    generatedCode = "",
+  } = $props();
 
   let workspace: Blockly.WorkspaceSvg;
   let codeOutput = $state("");
@@ -758,6 +761,22 @@
         }}
       />
     </label>
+
+    <button
+      class="btn-imp"
+      title="Load Terraform code generated in Orchestrator view"
+      onclick={() => {
+        if (generatedCode) {
+          handleImport(generatedCode);
+        } else {
+          alert(
+            "No generated Terraform code found. Switch to the Orchestrator view and click 'Generate' first.",
+          );
+        }
+      }}
+    >
+      Load from Orchestrator
+    </button>
 
     <div class="converter-section">
       <label for="sourcePlatform">Convert:</label>

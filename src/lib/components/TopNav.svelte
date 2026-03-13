@@ -35,11 +35,11 @@
     viewMode = $bindable("2d"),
     showTutorial = $bindable(false),
     importedDCF = $bindable<ImportedDCF | null>(null),
+    generatedCode = $bindable(""),
     onSimulationComplete = () => {},
   } = $props();
   let isGenerating = $state(false);
   let showResult = $state(false);
-  let generatedCode = $state("");
   let generatedK8s = $state("");
   let activeTab = $state("terraform");
   let copied = $state(false);
@@ -550,7 +550,7 @@
 
     <select class="view-selector title-dropdown" bind:value={currentView}>
       <option value="orchestrator">Cloud Orchestrator</option>
-      <option value="terraform">Terraform Converter</option>
+      <option value="terraform">Terraform Blocks</option>
     </select>
 
     {#if estimatedCost > 0}

@@ -75,6 +75,29 @@
   async function handleGenerate() {
     isGenerating = true;
     try {
+      // Flag isolated nodes that are disconnected from all networks (ignoring structural containers)
+      let hasIsolatedNodes = false;
+      nodes = nodes.map((node: any) => {
+        const isConnected = edges.some(
+          (e: any) => e.source === node.id || e.target === node.id,
+        );
+        const isContainer = [
+          "vpc",
+          "vnet",
+          "subnet",
+          "kubernetes",
+          "region",
+        ].includes(node.data?.type);
+        const isIsolated = !isConnected && !isContainer;
+
+        if (isIsolated) hasIsolatedNodes = true;
+
+        return {
+          ...node,
+          data: { ...node.data, isolated: isIsolated },
+        };
+      });
+
       // Run data flow simulation
       simulationResult = simulateDataFlow(
         nodes,

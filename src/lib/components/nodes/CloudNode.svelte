@@ -77,7 +77,9 @@
 </script>
 
 <div
-  class="cloud-node {sizingLevel > 0 ? 'container-node' : 'resource-node'}"
+  class="cloud-node {sizingLevel > 0
+    ? 'container-node'
+    : 'resource-node'} {data.isolated ? 'isolated' : ''}"
   class:selected
   data-level={sizingLevel}
   style="--node-accent: var(--accent-{data.provider}); {width
@@ -116,7 +118,15 @@
     </div>
     <div class="node-title">
       <span class="provider">{data.provider.toUpperCase()}</span>
-      <span class="label">{data.label}</span>
+      <span class="label">
+        {data.label}
+        {#if data.isolated}
+          <span
+            class="isolated-badge"
+            title="Isolated: Not connected to any networks">⚠️ Isolated</span
+          >
+        {/if}
+      </span>
     </div>
   </div>
 
@@ -246,6 +256,36 @@
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-main);
+    display: flex;
+    align-items: center;
+  }
+
+  .isolated-badge {
+    color: #ef4444;
+    font-size: 0.65rem;
+    margin-left: 6px;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  :global(.cloud-node.isolated) {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important;
+    animation: pulse-error 2s infinite;
+  }
+
+  @keyframes pulse-error {
+    0% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
   }
 
   .node-details {

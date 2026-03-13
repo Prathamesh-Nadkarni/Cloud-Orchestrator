@@ -1,0 +1,49 @@
+{
+    "nodes": [
+        {
+            "id": "aws-compute",
+            "type": "cloud",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "type": "gpuCompute",
+                "label": "AWS GPU Node",
+                "provider": "aws",
+                "name": "aws-gpu",
+                "requiresHA": true,
+                "bgpAsn": 65001
+            }
+        },
+        {
+            "id": "azure-db",
+            "type": "cloud",
+            "position": {
+                "x": 600,
+                "y": 100
+            },
+            "data": {
+                "type": "vectorDB",
+                "label": "Azure Vector DB",
+                "provider": "azure",
+                "name": "az-vecdb",
+                "requiresHA": true,
+                "bgpAsn": 65002
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-cross-cloud",
+            "source": "aws-compute",
+            "target": "azure-db",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432",
+                "expectedBandwidthMbps": 5000,
+                "routingProtocol": "bgp"
+            }
+        }
+    ]
+}

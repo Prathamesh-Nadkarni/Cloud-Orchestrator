@@ -1,0 +1,68 @@
+{
+    "nodes": [
+        {
+            "id": "internet-node",
+            "type": "cloud",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "type": "internet",
+                "label": "Internet",
+                "provider": "aws",
+                "name": "public"
+            }
+        },
+        {
+            "id": "ai-gateway",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 100
+            },
+            "data": {
+                "type": "aiGateway",
+                "label": "AI Gateway",
+                "provider": "aws",
+                "name": "ai-gw"
+            }
+        },
+        {
+            "id": "vector-db",
+            "type": "cloud",
+            "position": {
+                "x": 700,
+                "y": 100
+            },
+            "data": {
+                "type": "vectorDB",
+                "label": "Vector Database",
+                "provider": "aws",
+                "name": "embeddings-db"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-1",
+            "source": "internet-node",
+            "target": "ai-gateway",
+            "data": {
+                "protocol": "http",
+                "port": "80",
+                "expectedBandwidthMbps": 100
+            }
+        },
+        {
+            "id": "edge-2",
+            "source": "ai-gateway",
+            "target": "vector-db",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432",
+                "expectedBandwidthMbps": 500
+            }
+        }
+    ]
+}

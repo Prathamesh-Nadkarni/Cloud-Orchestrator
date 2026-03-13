@@ -1,0 +1,85 @@
+{
+    "nodes": [
+        {
+            "id": "ai-gateway-secure",
+            "type": "cloud",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "type": "aiGateway",
+                "label": "Secure AI Gateway",
+                "provider": "azure",
+                "name": "secure-gw",
+                "authMode": "oidc",
+                "redactPII": true
+            }
+        },
+        {
+            "id": "feature-store",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 100
+            },
+            "data": {
+                "type": "featureStore",
+                "label": "Feature Store",
+                "provider": "azure",
+                "name": "features"
+            }
+        },
+        {
+            "id": "training-cluster",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 300
+            },
+            "data": {
+                "type": "trainingCluster",
+                "label": "Distributed Training",
+                "provider": "azure",
+                "name": "training-nodes"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-secure-1",
+            "source": "ai-gateway-secure",
+            "target": "feature-store",
+            "data": {
+                "protocol": "https",
+                "port": "443",
+                "isEncrypted": true,
+                "dcfAction": "permit"
+            }
+        },
+        {
+            "id": "edge-secure-2",
+            "source": "feature-store",
+            "target": "training-cluster",
+            "data": {
+                "protocol": "tcp",
+                "port": "6379",
+                "isEncrypted": true,
+                "dcfAction": "permit"
+            }
+        }
+    ],
+    "dcf": {
+        "rules": [
+            {
+                "id": "rule-1",
+                "name": "Allow AI Gateway to Feature Store",
+                "action": "permit",
+                "protocol": "https",
+                "port": "443",
+                "srcSmartGroup": "ai-gw",
+                "dstSmartGroup": "storage"
+            }
+        ]
+    }
+}

@@ -82,6 +82,11 @@ export function generateAviatrix(nodes, edges = []) {
             }
             tf += `}\n\n`;
         }
+        else if (!['internet', 'client'].includes(data.type)) {
+            tf += `resource "aviatrix_${data.type.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_placeholder" "${name}" {\n`;
+            tf += `  # TODO: Configuration for AI Workload / Custom resource (${data.label || data.type})\n`;
+            tf += `  # Provide appropriate Aviatrix service configuration here.\n}\n\n`;
+        }
     });
 
     return tf;

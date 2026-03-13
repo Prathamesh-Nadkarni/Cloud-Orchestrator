@@ -117,6 +117,11 @@ export function generateAWS(nodes, edges = []) {
         tf += `  instance_id = aws_instance.${computeName}.id\n}\n\n`;
       }
     }
+    else if (!['internet', 'client'].includes(data.type)) {
+      tf += `resource "aws_${data.type.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_placeholder" "${name}" {\n`;
+      tf += `  # TODO: Configuration for AI Workload / Custom resource (${data.label || data.type})\n`;
+      tf += `  # Provide appropriate AWS service configuration here.\n}\n\n`;
+    }
   });
 
   // --- Network Orchestration (VPC Peering & TGW Attachments) ---

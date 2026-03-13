@@ -1,0 +1,56 @@
+{
+    "nodes": [
+        {
+            "id": "node-aws-model",
+            "type": "cloud",
+            "position": {
+                "x": 200,
+                "y": 200
+            },
+            "data": {
+                "type": "modelServing",
+                "provider": "aws",
+                "label": "AWS Training Cluster",
+                "name": "sagemaker-cluster",
+                "networkTier": "standard",
+                "expectedBandwidthMbps": 10000,
+                "authMode": "jwt"
+            }
+        },
+        {
+            "id": "node-azure-vdb",
+            "type": "cloud",
+            "position": {
+                "x": 600,
+                "y": 200
+            },
+            "data": {
+                "type": "vectorDB",
+                "provider": "azure",
+                "label": "Azure VectorDB",
+                "name": "cosmos-pgvector",
+                "networkTier": "premium",
+                "expectedBandwidthMbps": 2000,
+                "authMode": "jwt"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-cross-cloud",
+            "source": "node-aws-model",
+            "target": "node-azure-vdb",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432",
+                "trafficClass": "embeddings",
+                "expectedBandwidthMbps": 5000,
+                "trafficPattern": "bursty"
+            }
+        }
+    ],
+    "dcf": {
+        "smartGroups": [],
+        "policies": []
+    }
+}

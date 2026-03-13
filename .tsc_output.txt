@@ -1,0 +1,119 @@
+Loading svelte-check in workspace: /Users/pratham/Desktop/Sandbox/Cloud/Cloud-Orchestrator
+Getting Svelte diagnostics...
+
+/Users/pratham/Desktop/Sandbox/Cloud/Cloud-Orchestrator/src/lib/components/AttachModal.svelte:35:3
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+{#if isOpen && sourceNode}
+  <div class="modal-backdrop" onclick={onClose}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="attach-modal glass-panel" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <div class="header-titles">
+          <h3>Attach Resource</h3>
+          <p>Select resources to connect with <span class="highlight">{sourceNode.data.label}</span></p>
+        </div>
+        <button class="close-btn" onclick={onClose}>
+          <X size={20} />
+        </button>
+      </div>
+
+      <div class="node-list">
+        {#if availableNodes.length === 0}
+          <div class="empty-state">No other resources on the canvas to attach to.</div>
+        {:else}
+          {#each availableNodes as node (node.id)}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div 
+              class="node-item" 
+              class:selected={selectedTargetIds.includes(node.id)}
+              onclick={() => toggleSelection(node.id)}
+            >
+              <div class="checkbox">
+                {#if selectedTargetIds.includes(node.id)}
+                  <Check size={14} strokeWidth={3} />
+                {/if}
+              </div>
+              <div class="node-info">
+                <span class="provider" style="color: var(--accent-{node.data.provider})">
+                  {node.data.provider.toUpperCase()}
+                </span>
+                <span class="name">{node.data.label}</span>
+                {#if node.data.name}
+                  <span class="custom-name">({node.data.name})</span>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+        <button class="btn btn-primary" onclick={handleSave}>Save Connections</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+/Users/pratham/Desktop/Sandbox/Cloud/Cloud-Orchestrator/src/lib/components/AttachModal.svelte:35:3
+Warn: `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+{#if isOpen && sourceNode}
+  <div class="modal-backdrop" onclick={onClose}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="attach-modal glass-panel" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <div class="header-titles">
+          <h3>Attach Resource</h3>
+          <p>Select resources to connect with <span class="highlight">{sourceNode.data.label}</span></p>
+        </div>
+        <button class="close-btn" onclick={onClose}>
+          <X size={20} />
+        </button>
+      </div>
+
+      <div class="node-list">
+        {#if availableNodes.length === 0}
+          <div class="empty-state">No other resources on the canvas to attach to.</div>
+        {:else}
+          {#each availableNodes as node (node.id)}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div 
+              class="node-item" 
+              class:selected={selectedTargetIds.includes(node.id)}
+              onclick={() => toggleSelection(node.id)}
+            >
+              <div class="checkbox">
+                {#if selectedTargetIds.includes(node.id)}
+                  <Check size={14} strokeWidth={3} />
+                {/if}
+              </div>
+              <div class="node-info">
+                <span class="provider" style="color: var(--accent-{node.data.provider})">
+                  {node.data.provider.toUpperCase()}
+                </span>
+                <span class="name">{node.data.label}</span>
+                {#if node.data.name}
+                  <span class="custom-name">({node.data.name})</span>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+        <button class="btn btn-primary" onclick={handleSave}>Save Connections</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+====================================
+svelte-check found 0 errors and 2 warnings in 1 file

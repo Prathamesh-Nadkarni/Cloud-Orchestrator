@@ -1,86 +1,113 @@
 <script>
-  import { Cloud, Server, Box, Globe, Shield, GitBranch, Lock, Network, Container, Database, HardDrive, Cpu, Blocks } from 'lucide-svelte';
+  import {
+    Cloud,
+    Server,
+    Box,
+    Globe,
+    Shield,
+    GitBranch,
+    Lock,
+    Network,
+    Container,
+    Database,
+    HardDrive,
+    Cpu,
+    Blocks,
+  } from "lucide-svelte";
 
   const providers = [
     {
-      id: 'aws',
-      name: 'AWS',
-      color: 'var(--accent-aws)',
+      id: "aws",
+      name: "AWS",
+      color: "var(--accent-aws)",
       resources: [
-        { type: 'vpc', label: 'VPC', icon: Cloud },
-        { type: 'subnet', label: 'Subnet', icon: Box },
-        { type: 'securityGroup', label: 'Security Group', icon: Lock },
-        { type: 'compute', label: 'EC2 Instance', icon: Server },
-        { type: 'kubernetes', label: 'EKS Cluster', icon: Container },
-        { type: 'storage', label: 'S3 Bucket', icon: Database },
-        { type: 'disk', label: 'EBS Volume', icon: HardDrive }
-      ]
+        { type: "vpc", label: "VPC", icon: Cloud },
+        { type: "subnet", label: "Subnet", icon: Box },
+        { type: "securityGroup", label: "Security Group", icon: Lock },
+        { type: "compute", label: "EC2 Instance", icon: Server },
+        { type: "kubernetes", label: "EKS Cluster", icon: Container },
+        { type: "storage", label: "S3 Bucket", icon: Database },
+        { type: "disk", label: "EBS Volume", icon: HardDrive },
+      ],
     },
     {
-      id: 'azure',
-      name: 'Azure',
-      color: 'var(--accent-azure)',
+      id: "azure",
+      name: "Azure",
+      color: "var(--accent-azure)",
       resources: [
-        { type: 'vnet', label: 'VNet', icon: Cloud },
-        { type: 'subnet', label: 'Subnet', icon: Box },
-        { type: 'networkGroup', label: 'Network Sec Group', icon: Lock },
-        { type: 'compute', label: 'Azure VM', icon: Server },
-        { type: 'kubernetes', label: 'AKS Cluster', icon: Container },
-        { type: 'storage', label: 'Blob Storage', icon: Database },
-        { type: 'disk', label: 'Managed Disk', icon: HardDrive }
-      ]
+        { type: "vnet", label: "VNet", icon: Cloud },
+        { type: "subnet", label: "Subnet", icon: Box },
+        { type: "networkGroup", label: "Network Sec Group", icon: Lock },
+        { type: "compute", label: "Azure VM", icon: Server },
+        { type: "kubernetes", label: "AKS Cluster", icon: Container },
+        { type: "storage", label: "Blob Storage", icon: Database },
+        { type: "disk", label: "Managed Disk", icon: HardDrive },
+      ],
     },
     {
-      id: 'gcp',
-      name: 'Google Cloud',
-      color: 'var(--accent-gcp)',
+      id: "gcp",
+      name: "Google Cloud",
+      color: "var(--accent-gcp)",
       resources: [
-        { type: 'vpc', label: 'VPC Network', icon: Cloud },
-        { type: 'subnet', label: 'Subnetwork', icon: Box },
-        { type: 'firewall', label: 'Firewall Rule', icon: Shield },
-        { type: 'compute', label: 'Compute Engine', icon: Server },
-        { type: 'kubernetes', label: 'GKE Cluster', icon: Container },
-        { type: 'storage', label: 'Cloud Storage', icon: Database },
-        { type: 'disk', label: 'Persistent Disk', icon: HardDrive }
-      ]
+        { type: "vpc", label: "VPC Network", icon: Cloud },
+        { type: "subnet", label: "Subnetwork", icon: Box },
+        { type: "firewall", label: "Firewall Rule", icon: Shield },
+        { type: "compute", label: "Compute Engine", icon: Server },
+        { type: "kubernetes", label: "GKE Cluster", icon: Container },
+        { type: "storage", label: "Cloud Storage", icon: Database },
+        { type: "disk", label: "Persistent Disk", icon: HardDrive },
+      ],
     },
     {
-      id: 'kubernetes',
-      name: 'Kubernetes',
-      color: '#326CE5',
+      id: "kubernetes",
+      name: "Kubernetes",
+      color: "#326CE5",
       resources: [
-        { type: 'k8sNode', label: 'K8s Node', icon: Cpu },
-        { type: 'k8sPod', label: 'K8s Pod', icon: Blocks },
-        { type: 'k8sService', label: 'K8s Service', icon: Network }
-      ]
+        { type: "k8sNode", label: "K8s Node", icon: Cpu },
+        { type: "k8sPod", label: "K8s Pod", icon: Blocks },
+        { type: "k8sService", label: "K8s Service", icon: Network },
+      ],
     },
     {
-      id: 'aviatrix',
-      name: 'Aviatrix',
-      color: 'var(--accent-avx)',
+      id: "aviatrix",
+      name: "Aviatrix",
+      color: "var(--accent-avx)",
       resources: [
-        { type: 'transit', label: 'Transit Gateway', icon: Globe },
-        { type: 'spoke', label: 'Spoke Gateway', icon: GitBranch },
-        { type: 'firewall', label: 'Firenet', icon: Shield },
-        { type: 'dcf', label: 'DCF Policy', icon: Shield }
-      ]
+        { type: "transit", label: "Transit Gateway", icon: Globe },
+        { type: "spoke", label: "Spoke Gateway", icon: GitBranch },
+        { type: "firewall", label: "Firenet", icon: Shield },
+        { type: "dcf", label: "DCF Policy", icon: Shield },
+      ],
     },
     {
-      id: 'external',
-      name: 'External Entity',
-      color: '#6b7280',
+      id: "external",
+      name: "External Entity",
+      color: "#6b7280",
       resources: [
-        { type: 'internet', label: 'Internet (0.0.0.0/0)', icon: Globe },
-        { type: 'onprem', label: 'On-Premise Datacenter', icon: Server }
-      ]
-    }
+        { type: "internet", label: "Internet (0.0.0.0/0)", icon: Globe },
+        { type: "onprem", label: "On-Premise Datacenter", icon: Server },
+      ],
+    },
+    {
+      id: "ai",
+      name: "AI Workloads",
+      color: "#8b5cf6",
+      resources: [
+        { type: "modelServing", label: "Model Serving", icon: Cpu },
+        { type: "vectorDB", label: "Vector DB", icon: Database },
+        { type: "trainingCluster", label: "Training Cluster", icon: Server },
+        { type: "aiGateway", label: "AI Gateway", icon: Globe },
+        { type: "modelRegistry", label: "Model Registry", icon: Box },
+        { type: "externalModelAPI", label: "External Model API", icon: Cloud },
+      ],
+    },
   ];
 
   const onDragStart = (event, resourceType, label, providerId) => {
-    event.dataTransfer.setData('application/svelteflow', resourceType);
-    event.dataTransfer.setData('application/label', label);
-    event.dataTransfer.setData('application/provider', providerId);
-    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData("application/svelteflow", resourceType);
+    event.dataTransfer.setData("application/label", label);
+    event.dataTransfer.setData("application/provider", providerId);
+    event.dataTransfer.effectAllowed = "move";
   };
 </script>
 
@@ -93,17 +120,21 @@
   <div class="provider-list">
     {#each providers as provider}
       <div class="provider-section">
-        <div class="provider-header" style="border-left-color: {provider.color}">
+        <div
+          class="provider-header"
+          style="border-left-color: {provider.color}"
+        >
           <h4>{provider.name}</h4>
         </div>
-        
+
         <div class="resource-grid">
           {#each provider.resources as resource}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div 
+            <div
               class="resource-item"
               draggable={true}
-              ondragstart={(e) => onDragStart(e, resource.type, resource.label, provider.id)}
+              ondragstart={(e) =>
+                onDragStart(e, resource.type, resource.label, provider.id)}
             >
               <div class="resource-icon" style="color: {provider.color}">
                 <resource.icon size={20} />

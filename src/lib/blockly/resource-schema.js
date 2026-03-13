@@ -104,7 +104,7 @@ export const RESOURCE_SCHEMAS = {
     required: [],
     optional: ['bucket', 'acl', 'versioning', 'tags']
   },
-  
+
   // Azure Resources
   'azurerm_virtual_machine': {
     vendor: 'azurerm',
@@ -136,7 +136,7 @@ export const RESOURCE_SCHEMAS = {
     required: ['name', 'location'],
     optional: ['tags']
   },
-  
+
   // GCP Resources
   'google_compute_instance': {
     vendor: 'google',
@@ -168,7 +168,7 @@ export const RESOURCE_SCHEMAS = {
     required: ['name'],
     optional: ['location', 'storage_class', 'labels']
   },
-  
+
   // Aviatrix Resources - Based on https://github.com/AviatrixSystems/terraform-provider-aviatrix
   'aviatrix_account': {
     vendor: 'aviatrix',
@@ -259,6 +259,18 @@ export const RESOURCE_SCHEMAS = {
     category: 'network',
     required: ['vpc_id', 'connection_name', 'remote_gateway_type', 'remote_gateway_ip', 'pre_shared_key', 'remote_subnet_cidr', 'local_subnet_cidr'],
     optional: ['remote_gateway_latitude', 'remote_gateway_longitude', 'backup_remote_gateway_ip', 'backup_pre_shared_key', 'backup_remote_subnet_cidr', 'custom_algorithms', 'phase1_authentication', 'phase1_dh_groups', 'phase1_encryption', 'phase2_authentication', 'phase2_dh_groups', 'phase2_encryption', 'enable_ikev2', 'enable_event_triggered_ha', 'enable_dead_peer_detection', 'ha_enabled', 'bgp_local_as_num', 'bgp_remote_as_num', 'remote_cidr', 'local_lan_cidr', 'remote_lan_cidr', 'enable_learned_cidrs_approval', 'approved_cidrs', 'tunnel_protocol', 'enable_global_accelerator']
+  },
+  'aviatrix_smart_group': {
+    vendor: 'aviatrix',
+    category: 'security',
+    required: ['name', 'selector'],
+    optional: ['uuid']
+  },
+  'aviatrix_distributed_firewalling_policy_list': {
+    vendor: 'aviatrix',
+    category: 'security',
+    required: ['policies'],
+    optional: []
   }
 };
 
@@ -267,14 +279,14 @@ export const RESOURCE_SCHEMAS = {
  */
 export function getResourceCategory(resourceType) {
   const lowerType = resourceType.toLowerCase();
-  
+
   for (const [category, config] of Object.entries(RESOURCE_CATEGORIES)) {
     if (category === 'other') continue;
     if (config.patterns.some(pattern => lowerType.includes(pattern))) {
       return category;
     }
   }
-  
+
   return 'other';
 }
 
@@ -319,29 +331,29 @@ export function getRequiredAttributes(resourceType) {
 export function validateResource(resourceType, resourceName, attributes) {
   const errors = [];
   const warnings = [];
-  
+
   // Check if resource type is allowed
   if (!isResourceTypeAllowed(resourceType)) {
     errors.push(`Resource type "${resourceType}" is not from an allowed vendor. Allowed vendors: ${Object.keys(ALLOWED_VENDORS).join(', ')}`);
     return { valid: false, errors, warnings };
   }
-  
+
   // Get required attributes
   const required = getRequiredAttributes(resourceType);
   const attributeKeys = Object.keys(attributes || {});
-  
+
   // Check for required attributes
   required.forEach(attr => {
     if (!attributeKeys.includes(attr)) {
       errors.push(`Resource "${resourceType}.${resourceName}" is missing required attribute: "${attr}"`);
     }
   });
-  
+
   // Check for common issues
   if (attributeKeys.length === 0) {
     warnings.push(`Resource "${resourceType}.${resourceName}" has no attributes defined`);
   }
-  
+
   return {
     valid: errors.length === 0,
     errors,
@@ -356,13 +368,13 @@ export function getResourceSchema(resourceType) {
   if (RESOURCE_SCHEMAS[resourceType]) {
     return RESOURCE_SCHEMAS[resourceType];
   }
-  
+
   // Create default schema for unknown resource types
   const vendor = getVendorFromResourceType(resourceType);
   if (!vendor) {
     return null;
   }
-  
+
   return {
     vendor: vendor,
     category: getResourceCategory(resourceType),

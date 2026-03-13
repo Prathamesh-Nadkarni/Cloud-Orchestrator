@@ -1,7 +1,38 @@
+import { NetworkProfiles } from '../config/networkProfiles';
+
 export interface NodeData {
     id: string;
-    type: string;
-    data: any;
+    type: string; // Generic canonical type
+    data: {
+        type?: string;
+        provider?: string;
+        size?: string;
+        label?: string;
+        [key: string]: any;
+
+        // AI Workload Metadata
+        dataSensitivity?: 'public' | 'internal' | 'confidential' | 'regulated';
+        containsPII?: boolean;
+        containsTrainingData?: boolean;
+        containsPrompts?: boolean;
+        containsEmbeddings?: boolean;
+        internetReachable?: boolean;
+        authMode?: 'none' | 'apiKey' | 'mTLS' | 'IAM' | 'OAuth';
+        modelOrigin?: 'selfHosted' | 'managed' | 'external';
+        egressRestricted?: boolean;
+        loggingEnabled?: boolean;
+        redactionEnabled?: boolean;
+        guardrailEnabled?: boolean;
+        humanApprovalRequired?: boolean;
+
+        // Network Capacity Metadata
+        expectedBandwidthMbps?: number;
+        networkTier?: string;
+
+        // Multicloud / Routing
+        requiresHA?: boolean;
+        bgpAsn?: number;
+    };
     parentId?: string;
     position?: { x: number; y: number };
 }
@@ -13,36 +44,73 @@ export interface EdgeData {
     data: {
         protocol?: string;
         port?: string;
-        dcfAction?: string; // e.g. "allow", "deny", "none"
+        dcfAction?: string; // Legacy override
+
+        // AI Traffic Metadata
+        trafficClass?: 'inference' | 'training' | 'embedding' | 'sync' | 'admin' | 'telemetry';
+        payloadType?: 'prompts' | 'embeddings' | 'modelWeights' | 'trainingData' | 'metadata';
+        encrypted?: boolean;
+        authenticated?: boolean;
+        crossBoundary?: 'sameVPC' | 'crossVPC' | 'crossCloud' | 'internet';
+        egressType?: 'internal' | 'externalAPI' | 'modelAPI' | 'publicInternet';
+
+        // Capacity & Routing Metadata
+        expectedBandwidthMbps?: number;
+        peakBandwidthMbps?: number;
+        trafficPattern?: 'steady' | 'bursty' | 'batch' | 'streaming' | 'replication';
+        directionality?: 'ingress' | 'egress' | 'bidirectional';
+        maxLatencyMs?: number;
+        monthlyTransferGB?: number;
+        routingProtocol?: 'static' | 'bgp' | 'ospf';
     };
 }
 
 export interface SimulationResult {
     vulnerabilities: Vulnerability[];
-    simulatedEdges: string[]; // Edges that show the data flow / provenance
-    blockedEdges: string[]; // Edges where traffic was blocked by DCF
+    simulatedEdges: string[];
+    blockedEdges: string[];
 }
 
 export interface Vulnerability {
     edgeId?: string;
     nodeId?: string;
+    category: 'network' | 'ai' | 'dcf' | 'isolation' | 'capacity' | 'compliance';
     title: string;
     description: string;
-    severity: "high" | "medium" | "low";
+    severity: "high" | "medium" | "low" | "blocked";
+    remediation?: string;
 }
 
 export interface SmartGroup {
+    uuid: string;
     name: string;
-    matchExpressions: Array<{ type: string; operator: string; value: string }>;
+    resourceType?: string;
+    provider?: string;
+    nameContains?: string;
+    cidr?: string;
+    tags?: Record<string, string>;
+    environment?: string;
+    criticality?: string;
+    aiRole?: string;
+    namespace?: string;
+    cluster?: string;
+    customLabels?: Record<string, string>;
+    matchExpressions?: Array<{ type: string; operator: string; value: string }>;
 }
 
 export interface DCFPolicy {
+    uuid: string;
     name: string;
     action: "ALLOW" | "DENY";
-    protocol: string; // e.g., "TCP", "UDP", "ANY"
-    port: string; // e.g., "80", "443", "ANY"
+    priority?: number;
+    protocol: string;
+    port?: string;
     srcSmartGroups: string[];
     dstSmartGroups: string[];
+    logging?: boolean;
+    description?: string;
+    stateful?: boolean;
+    direction?: 'ingress' | 'egress' | 'both';
 }
 
 export interface ImportedDCF {
@@ -50,317 +118,253 @@ export interface ImportedDCF {
     policies: DCFPolicy[];
 }
 
-/**
- * Simulates data flow starting from internet nodes, finding paths through the network.
- * Analyzes the graph for common vulnerabilities.
- */
-export function simulateDataFlow(
-    nodes: NodeData[],
-    edges: EdgeData[],
-    importedDCF?: ImportedDCF
-): SimulationResult {
+// -----------------------------------------------------------------------------
+// Evaluators
+// -----------------------------------------------------------------------------
+
+function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, dcf?: ImportedDCF): Vulnerability[] {
+    const vulns: Vulnerability[] = [];
+    if (!dcf || dcf.policies.length === 0) return vulns;
+
+    const protocol = (edge.data.protocol || "any").toLowerCase();
+    const port = edge.data.port || "any";
+
+    const getMatchingGroups = (node: NodeData) => {
+        const matchedGroups: string[] = [];
+        for (const sg of dcf.smartGroups) {
+            const matches = (sg.matchExpressions || []).every(expr => {
+                if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data.type === expr.value;
+                if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data.label === expr.value;
+                if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data.label?.includes(expr.value);
+                return false;
+            });
+            if (matches) matchedGroups.push(sg.name);
+        }
+        return matchedGroups;
+    };
+
+    const srcGroups = getMatchingGroups(srcNode);
+    const dstGroups = getMatchingGroups(dstNode);
+
+    for (const policy of dcf.policies) {
+        const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
+        const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
+        const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
+        const portMatch = (policy.port || "any").toLowerCase() === "any" || policy.port === port;
+
+        if (srcMatch && dstMatch && protocolMatch && portMatch) {
+            if (policy.action === "DENY") {
+                vulns.push({
+                    edgeId: edge.id,
+                    category: 'dcf',
+                    title: `Traffic Blocked by DCF Policy: ${policy.name}`,
+                    description: `Policy '${policy.name}' dropped traffic from ${srcNode.data.label || srcNode.data.type} to ${dstNode.data.label || dstNode.data.type}.`,
+                    severity: "blocked"
+                });
+            }
+            break;
+        }
+    }
+    return vulns;
+}
+
+function evaluateNetworkRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData): Vulnerability[] {
+    const vulns: Vulnerability[] = [];
+    const protocol = (edge.data.protocol || "any").toLowerCase();
+    const port = edge.data.port || "any";
+    const srcLabel = srcNode.data.label || srcNode.data.type || "Unknown";
+    const dstLabel = dstNode.data.label || dstNode.data.type || "Unknown";
+    const srcType = srcNode.data.type || "";
+    const dstType = dstNode.data.type || "";
+    const isFromExternal = srcType === "internet" || srcType === "onprem";
+    const adminPorts = ["22", "3389", "5900", "23", "2222", "5985", "5986"];
+    const dbPorts = ["3306", "5432", "1433", "1521", "27017", "6379", "9042", "5984"];
+
+    if ((protocol === "http" || protocol === "tcp" || protocol === "telnet" || protocol === "ftp") &&
+        (isFromExternal || dstType === "database" || dstType === "storage")) {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Unencrypted Data Flow", description: `Data flowing from '${srcLabel}' to '${dstLabel}' uses unencrypted protocol (${protocol.toUpperCase()}). Use HTTPS or TLS.`, severity: "high" });
+    }
+
+    if (srcType === "internet" && (dstType === "storage" || dstType === "database")) {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Direct Public Access to Storage/Database", description: `Database/Storage node '${dstLabel}' is directly accessible from the internet.`, severity: "high" });
+    }
+
+    if (isFromExternal && adminPorts.includes(port)) {
+        vulns.push({ edgeId: edge.id, category: 'network', title: `Admin Port ${port} Exposed Externally`, description: `Restric admin access.`, severity: "high" });
+    }
+
+    if (port === "*" || port === "0-65535" || port === "any") {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Wildcard Port Exposure", description: `All ports open from '${srcLabel}' to '${dstLabel}'.`, severity: "high" });
+    }
+
+    if (isFromExternal && dbPorts.includes(port)) {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Database Port Exposed", description: `Database port ${port} is directly accessible externally.`, severity: "high" });
+    }
+
+    if (srcNode.data.provider && dstNode.data.provider && srcNode.data.provider !== dstNode.data.provider && srcNode.data.provider !== "external" && dstNode.data.provider !== "external" && srcNode.data.provider !== "aviatrix" && dstNode.data.provider !== "aviatrix" && protocol !== "https" && protocol !== "tls" && protocol !== "grpc") {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Cross-Cloud Unencrypted Traffic", description: `Cross-cloud traffic MUST be encrypted.`, severity: "high" });
+    }
+
+    return vulns;
+}
+
+function evaluateStructuralRules(nodes: NodeData[], edges: EdgeData[]): Vulnerability[] {
+    const vulns: Vulnerability[] = [];
+    const connectedNodeIds = new Set<string>();
+    edges.forEach(e => { connectedNodeIds.add(e.source); connectedNodeIds.add(e.target); });
+
+    nodes.forEach(node => {
+        const nType = node.data.type || "";
+        if (["compute", "database", "storage", "kubernetes"].includes(nType) && !connectedNodeIds.has(node.id)) {
+            vulns.push({ nodeId: node.id, category: 'isolation', title: "Isolated Node", description: `'${node.data.label || nType}' has no network rules.`, severity: "medium" });
+        }
+        if ((nType === "database" || nType === "storage") && !node.parentId) {
+            vulns.push({ nodeId: node.id, category: 'isolation', title: "Database/Storage Without Network Boundary", description: `Sensitive data stores MUST be isolated within a private subnet.`, severity: "high" });
+        }
+        if (nType === "compute" && !node.parentId) {
+            vulns.push({ nodeId: node.id, category: 'isolation', title: "Compute Node Without Network Isolation", description: `Compute node is not inside a VPC/VNet/Subnet.`, severity: "medium" });
+        }
+        if (nType === "internet" && node.parentId) {
+            const parent = nodes.find(n => n.id === node.parentId);
+            if (parent && ["subnet", "vpc", "vnet"].includes(parent.data.type || "")) {
+                vulns.push({ nodeId: node.id, category: 'isolation', title: "Internet Gateway Misconfigured Inside Private Network", description: `Internet gateways should be external to VPCs/VNets.`, severity: "medium" });
+            }
+        }
+    });
+    return vulns;
+}
+
+function evaluateAIRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData): Vulnerability[] {
+    const vulns: Vulnerability[] = [];
+    const srcType = srcNode.data.type || "";
+    const dstType = dstNode.data.type || "";
+    const isFromExternal = srcType === "internet" || srcType === "onprem";
+
+    // Unauthenticated Public Model
+    if (isFromExternal && dstType === "modelServing" && dstNode.data.authMode === "none") {
+        vulns.push({ edgeId: edge.id, category: 'ai', title: "Public Model Endpoint Without Auth", description: `Model serving endpoint is publicly reachable without authentication.`, severity: "high" });
+    }
+
+    // Prompt Flow to External Model without Redaction
+    if (edge.data.payloadType === "prompts" && dstType === "externalModelAPI" && !srcNode.data.redactionEnabled) {
+        vulns.push({ edgeId: edge.id, category: 'ai', title: "Prompts to External API Without Redaction", description: `Sending prompts to an external API without redaction could leak PII.`, severity: "high" });
+    }
+
+    // Vector DB Exposed to Broad Compute / Internet
+    if (dstType === "vectorDB" && (isFromExternal || srcType !== "embeddingService")) {
+        vulns.push({ edgeId: edge.id, category: 'ai', title: "Vector DB Overly Exposed", description: `Vector DB should only be reachable by authorized embedding or orchestrator services.`, severity: "high" });
+    }
+
+    // Training Data Exposed
+    if (dstType === "featureStore" && isFromExternal) {
+        vulns.push({ edgeId: edge.id, category: 'ai', title: "Training Data Exposed to Internet", description: `Feature store is reachable from the public internet.`, severity: "high" });
+    }
+
+    // Unencrypted Prompts/Embeddings
+    if ((edge.data.payloadType === "prompts" || edge.data.payloadType === "embeddings") && (edge.data.protocol === "http" || edge.data.protocol === "tcp")) {
+        vulns.push({ edgeId: edge.id, category: 'ai', title: "Sensitive AI Traffic Unencrypted", description: `Prompts or embeddings are transferred without TLS/HTTPS.`, severity: "high" });
+    }
+
+    return vulns;
+}
+
+function evaluateCapacityRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData): Vulnerability[] {
+    const vulns: Vulnerability[] = [];
+    const expectedBw = edge.data.expectedBandwidthMbps || 0;
+    const maxLatency = edge.data.maxLatencyMs || Infinity;
+    const monthlyData = edge.data.monthlyTransferGB || 0;
+    const isCrossCloud = srcNode.data.provider && dstNode.data.provider && srcNode.data.provider !== dstNode.data.provider;
+
+    // Simulate checks pulling from capacity estimates
+    if (expectedBw > 10000 && (srcNode.data.size?.includes("micro") || srcNode.data.size?.includes("small"))) {
+        vulns.push({ edgeId: edge.id, category: 'capacity', title: "Bandwidth Exceeds Node Capability", description: `Edge expected bandwidth (${expectedBw} Mbps) likely saturates small node instances.`, severity: "medium" });
+    }
+
+    if (isCrossCloud && expectedBw > 1000) {
+        vulns.push({ edgeId: edge.id, category: 'capacity', title: "High Cross-Cloud Data Transfer", description: `Cross cloud traffic of ${expectedBw} Mbps may incur high egress costs.`, severity: "medium" });
+    }
+
+    // Multicloud Latency SLA Constraints
+    if (isCrossCloud && maxLatency < 20) {
+        vulns.push({ edgeId: edge.id, category: 'capacity', title: "Unattainable Latency SLA", description: `Cross-cloud links rarely achieve sub-20ms latency stably (${maxLatency}ms requested).`, severity: "high" });
+    }
+
+    // Multicloud Egress Transfer Volumes
+    if (isCrossCloud && monthlyData > 5000) {
+        vulns.push({ edgeId: edge.id, category: 'capacity', title: "Massive Cross-Cloud Egress Costs", description: `Expected monthly transfer of ${monthlyData}GB across CSP boundaries will drive significant billing overages.`, severity: "high" });
+    }
+
+    // Multicloud Routing Constraints
+    if (edge.data.routingProtocol === "static" && (expectedBw > 5000 || monthlyData > 10000)) {
+        vulns.push({ edgeId: edge.id, category: 'network', title: "Static Routing Limits", description: `Static routing is suboptimal for high throughput (${expectedBw} Mbps). Strongly consider BGP.`, severity: "medium" });
+    }
+
+    // Node HA Warning
+    if (srcNode.data.requiresHA && (!srcNode.data.size?.includes("large") && !srcNode.data.type?.includes("kubernetes"))) {
+        vulns.push({ nodeId: srcNode.id, category: 'capacity', title: "HA Configuration Risk", description: `Node requests HA but may not be distributed or sized appropriately.`, severity: "medium" });
+    }
+
+    return vulns;
+}
+
+export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedDCF?: ImportedDCF): SimulationResult {
     const vulnerabilities: Vulnerability[] = [];
     const simulatedEdges = new Set<string>();
     const blockedEdges = new Set<string>();
 
-    // Create an adjacency list for easier traversal
     const adjList: Record<string, EdgeData[]> = {};
     nodes.forEach((n) => { adjList[n.id] = []; });
-
     edges.forEach((e) => {
         if (!adjList[e.source]) adjList[e.source] = [];
         adjList[e.source].push(e);
     });
 
-    // Basic graph traversal to find data flow paths and uncover vulnerabilities
     let queue: { nodeId: string; path: EdgeData[] }[] = [];
     const visitedEdges = new Set<string>();
 
-    // Initialize queue with all nodes to ensure no isolated subgraphs are missed
-    nodes.forEach((node) => {
-        queue.push({ nodeId: node.id, path: [] });
-    });
+    nodes.forEach((node) => queue.push({ nodeId: node.id, path: [] }));
 
     while (queue.length > 0) {
         const { nodeId, path } = queue.shift()!;
-
-        // Add the path that led here to simulatedEdges
         path.forEach((e) => simulatedEdges.add(e.id));
-
         const currentNode = nodes.find(n => n.id === nodeId);
-
-        // Check outgoing edges from this node
         const outgoingEdges = adjList[nodeId] || [];
 
         for (const edge of outgoingEdges) {
-            // Prevent infinite loops by blocking edge revisits instead of node revisits
             if (visitedEdges.has(edge.id)) continue;
             visitedEdges.add(edge.id);
             const targetNode = nodes.find((n) => n.id === edge.target);
-            if (!targetNode) continue;
+            if (!targetNode || !currentNode) continue;
 
-            const protocol = edge.data?.protocol?.toLowerCase() || "any";
-            const port = edge.data?.port || "any";
+            const dcfVulns = evaluateDCFRules(currentNode, targetNode, edge, importedDCF);
             let trafficBlocked = false;
 
-            // DCF Policy Enforcement (Imported JSON Evaluator)
-            if (importedDCF && importedDCF.policies.length > 0) {
-                // Determine matching smartgroups for Source and Destination Nodes
-                const getMatchingGroups = (node: NodeData) => {
-                    const matchedGroups: string[] = [];
-                    for (const sg of importedDCF.smartGroups) {
-                        const matches = sg.matchExpressions.every(expr => {
-                            if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data?.type === expr.value;
-                            if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data?.label === expr.value;
-                            if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data?.label?.includes(expr.value);
-                            return false;
-                        });
-                        if (matches) matchedGroups.push(sg.name);
-                    }
-                    return matchedGroups;
-                };
-
-                const srcGroups = getMatchingGroups(currentNode!);
-                const dstGroups = getMatchingGroups(targetNode);
-
-                // Sequential Policy Evaluation
-                for (const policy of importedDCF.policies) {
-                    const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
-                    const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
-
-                    const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
-                    const portMatch = policy.port.toLowerCase() === "any" || policy.port === port;
-
-                    if (srcMatch && dstMatch && protocolMatch && portMatch) {
-                        if (policy.action === "DENY") {
-                            blockedEdges.add(edge.id);
-                            vulnerabilities.push({
-                                edgeId: edge.id,
-                                title: `Traffic Blocked by Imported DCF Policy: ${policy.name}`,
-                                description: `Policy '${policy.name}' dropped traffic from ${currentNode?.data?.label || currentNode?.data?.type} to ${targetNode.data?.label || targetNode.data?.type}.`,
-                                severity: "low"
-                            });
-                            simulatedEdges.add(edge.id);
-                            trafficBlocked = true;
-                        } else if (policy.action === "ALLOW") {
-                            // Explicitly allowed, meaning we skip checking the basic edge properties.
-                            // However, we let the structural checks (like Unencrypted Flow) still fire for reporting reasons.
-                        }
-                        break; // Stop evaluating policies once the *first* match is hit
-                    }
-                }
+            if (dcfVulns.length > 0) {
+                blockedEdges.add(edge.id);
+                simulatedEdges.add(edge.id);
+                vulnerabilities.push(...dcfVulns);
+                trafficBlocked = true;
             }
 
-            // DCF Policy Enforcement (Edge Level override from Canvas)
             if (!trafficBlocked && edge.data?.dcfAction === "deny") {
                 blockedEdges.add(edge.id);
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Traffic Blocked by Manual DCF Assignment",
-                    description: `Aviatrix Distributed Cloud Firewall dynamically dropped traffic from ${currentNode?.data?.label || currentNode?.data?.type} to ${targetNode.data?.label || targetNode.data?.type}.`,
-                    severity: "low"
-                });
+                vulnerabilities.push({ edgeId: edge.id, category: 'dcf', title: "Traffic Blocked by Manual DCF Assignment", description: `Dropped traffic from ${currentNode.data.label} to ${targetNode.data.label}.`, severity: "blocked" });
                 simulatedEdges.add(edge.id);
                 trafficBlocked = true;
             }
 
-            if (trafficBlocked) {
-                continue; // STOP TRAVERSAL
-            }
+            if (trafficBlocked) continue;
 
-            // ═══════════════════════════════════════════════════════════════
-            // VULNERABILITY DETECTION ENGINE — Comprehensive Rule Set
-            // ═══════════════════════════════════════════════════════════════
+            vulnerabilities.push(...evaluateNetworkRules(currentNode, targetNode, edge));
+            vulnerabilities.push(...evaluateAIRules(currentNode, targetNode, edge));
+            vulnerabilities.push(...evaluateCapacityRules(currentNode, targetNode, edge));
 
-            const srcLabel = currentNode?.data?.label || currentNode?.data?.type || "Unknown";
-            const dstLabel = targetNode.data?.label || targetNode.data?.type || "Unknown";
-            const srcType = currentNode?.data?.type || "";
-            const dstType = targetNode.data?.type || "";
-            const isFromExternal = srcType === "internet" || srcType === "onprem";
-            const adminPorts = ["22", "3389", "5900", "23", "2222", "5985", "5986"];
-            const dbPorts = ["3306", "5432", "1433", "1521", "27017", "6379", "9042", "5984"];
-
-            // 1. Unencrypted traffic over internet or to sensitive targets
-            if ((protocol === "http" || protocol === "tcp" || protocol === "telnet" || protocol === "ftp") &&
-                (isFromExternal || dstType === "database" || dstType === "storage")) {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Unencrypted Data Flow",
-                    description: `Data flowing from '${srcLabel}' to '${dstLabel}' uses unencrypted protocol (${protocol.toUpperCase()}). Use HTTPS or TLS to protect data in transit.`,
-                    severity: "high",
-                });
-            }
-
-            // 2. Direct Internet → Database / Storage
-            if (srcType === "internet" && (dstType === "storage" || dstType === "database")) {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Direct Public Access to Storage/Database",
-                    description: `Database/Storage node '${dstLabel}' is directly accessible from the internet. Place it behind a private subnet and access via application servers.`,
-                    severity: "high"
-                });
-            }
-
-            // 3. Admin/Management Ports Exposed to External Sources (SSH, RDP, VNC, Telnet)
-            if (isFromExternal && adminPorts.includes(port)) {
-                const portNames: Record<string, string> = { "22": "SSH", "3389": "RDP", "5900": "VNC", "23": "Telnet", "2222": "SSH-Alt", "5985": "WinRM-HTTP", "5986": "WinRM-HTTPS" };
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: `${portNames[port] || "Admin"} Port Exposed to External Traffic`,
-                    description: `Port ${port} (${portNames[port] || "admin service"}) on '${dstLabel}' is reachable from '${srcLabel}'. Restrict admin access to a bastion or VPN. Never expose management ports publicly.`,
-                    severity: "high"
-                });
-            }
-
-            // 4. Wildcard Port Exposure (port = "*" or "0-65535")
-            if (port === "*" || port === "0-65535" || port === "any") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Wildcard Port Exposure",
-                    description: `All ports are open from '${srcLabel}' to '${dstLabel}'. This is extremely permissive. Restrict to only necessary ports (e.g., 443, 8080).`,
-                    severity: "high"
-                });
-            }
-
-            // 5. FTP Protocol Usage
-            if (protocol === "ftp") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Insecure FTP Protocol",
-                    description: `FTP is inherently insecure (credentials sent in plaintext) between '${srcLabel}' and '${dstLabel}'. Use SFTP or SCP instead.`,
-                    severity: "high"
-                });
-            }
-
-            // 6. Telnet Protocol Usage
-            if (protocol === "telnet") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Insecure Telnet Protocol",
-                    description: `Telnet sends all data including credentials in plaintext between '${srcLabel}' and '${dstLabel}'. Use SSH instead.`,
-                    severity: "high"
-                });
-            }
-
-            // 7. Database Ports Exposed from Internet
-            if (isFromExternal && dbPorts.includes(port)) {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Database Port Exposed to External Network",
-                    description: `Database port ${port} is accessible from '${srcLabel}'. Database services should never be directly exposed externally. Use a proxy, bastion, or application layer.`,
-                    severity: "high"
-                });
-            }
-
-            // 8. Cross-Cloud Unencrypted Traffic (different providers communicating without HTTPS/TLS)
-            if (currentNode?.data?.provider && targetNode.data?.provider &&
-                currentNode.data.provider !== targetNode.data.provider &&
-                currentNode.data.provider !== "external" && targetNode.data.provider !== "external" &&
-                currentNode.data.provider !== "aviatrix" && targetNode.data.provider !== "aviatrix" &&
-                protocol !== "https" && protocol !== "tls" && protocol !== "grpc") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Cross-Cloud Unencrypted Traffic",
-                    description: `Traffic from '${srcLabel}' (${currentNode.data.provider.toUpperCase()}) to '${dstLabel}' (${targetNode.data.provider.toUpperCase()}) uses '${protocol.toUpperCase()}' without encryption. Cross-cloud traffic MUST be encrypted (use HTTPS, TLS, or IPsec tunnels).`,
-                    severity: "high"
-                });
-            }
-
-            // 9. Database Replication Over Unencrypted Channel
-            if (srcType === "database" && dstType === "database" && protocol !== "https" && protocol !== "tls") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Unencrypted Database Replication",
-                    description: `Database replication between '${srcLabel}' and '${dstLabel}' uses '${protocol.toUpperCase()}'. Enable TLS/SSL for replication streams to protect data at rest in transit.`,
-                    severity: "medium"
-                });
-            }
-
-            // 10. Compute Node Without Subnet Isolation (no parentId = not inside a VPC/VNet/Subnet)
-            if (dstType === "compute" && !targetNode.parentId) {
-                vulnerabilities.push({
-                    nodeId: targetNode.id,
-                    title: "Compute Node Without Network Isolation",
-                    description: `Compute node '${dstLabel}' is not placed inside any VPC, VNet, or Subnet. It should be nested inside a network boundary for proper security group and ACL enforcement.`,
-                    severity: "medium"
-                });
-            }
-
-            // 11. HTTP (port 80) when HTTPS (443) exists — unnecessary open insecure port
-            if (port === "80" && protocol === "http") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "HTTP Port 80 Open — Use HTTPS Redirect",
-                    description: `Port 80 (HTTP) is open from '${srcLabel}' to '${dstLabel}'. Consider enforcing HTTPS-only (port 443) and redirecting HTTP to HTTPS.`,
-                    severity: "medium"
-                });
-            }
-
-            // 12. Overly broad protocol ("all" or "any") usage
-            if (protocol === "all" || protocol === "any") {
-                vulnerabilities.push({
-                    edgeId: edge.id,
-                    title: "Overly Permissive Protocol Rule",
-                    description: `The connection from '${srcLabel}' to '${dstLabel}' allows ALL protocols. This is a very broad rule. Restrict to specific protocols like TCP/443 or UDP/53.`,
-                    severity: "medium"
-                });
-            }
-
-            // Record edge natively as simulated before placing in queue
             simulatedEdges.add(edge.id);
-
-            // Queue the next node
             queue.push({ nodeId: targetNode.id, path: [...path, edge] });
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // POST-TRAVERSAL STRUCTURAL CHECKS
-    // ═══════════════════════════════════════════════════════════════
-
-    // 13. Orphan Nodes — nodes with zero connections (no security rules defined at all)
-    const connectedNodeIds = new Set<string>();
-    edges.forEach(e => { connectedNodeIds.add(e.source); connectedNodeIds.add(e.target); });
-
-    nodes.forEach(node => {
-        const nType = node.data?.type || "";
-        // Only flag compute, database, storage — skip containers like vpc/vnet/subnet
-        if (["compute", "database", "storage", "kubernetes"].includes(nType) && !connectedNodeIds.has(node.id)) {
-            vulnerabilities.push({
-                nodeId: node.id,
-                title: "Isolated Node — No Network Rules Defined",
-                description: `'${node.data?.label || nType}' has no inbound or outbound network connections. This means no security/firewall rules are configured for it. Either connect it to the network or remove it.`,
-                severity: "medium"
-            });
-        }
-    });
-
-    // 14. Database / Storage Without Parent Subnet
-    nodes.forEach(node => {
-        if ((node.data?.type === "database" || node.data?.type === "storage") && !node.parentId) {
-            vulnerabilities.push({
-                nodeId: node.id,
-                title: "Database/Storage Without Network Boundary",
-                description: `'${node.data?.label}' is not placed inside a VPC/VNet/Subnet. Sensitive data stores MUST be isolated within a private subnet with restricted access.`,
-                severity: "high"
-            });
-        }
-    });
-
-    // 15. Internet Node Directly Inside a Private Subnet (misconfig)
-    nodes.forEach(node => {
-        if (node.data?.type === "internet" && node.parentId) {
-            const parent = nodes.find(n => n.id === node.parentId);
-            if (parent && (parent.data?.type === "subnet" || parent.data?.type === "vpc" || parent.data?.type === "vnet")) {
-                vulnerabilities.push({
-                    nodeId: node.id,
-                    title: "Internet Gateway Misconfigured Inside Private Network",
-                    description: `Internet node '${node.data?.label}' is nested inside '${parent.data?.label}'. Internet gateways should be external to VPCs/VNets, not inside subnets.`,
-                    severity: "medium"
-                });
-            }
-        }
-    });
+    vulnerabilities.push(...evaluateStructuralRules(nodes, edges));
 
     return {
         vulnerabilities,

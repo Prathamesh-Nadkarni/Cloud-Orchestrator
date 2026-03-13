@@ -94,10 +94,25 @@
         const isBlocked = simulationResult!.blockedEdges.includes(edge.id);
 
         // Build tooltip text from vulnerability titles
-        const vulnLabels = edgeVulns.map((v) => v.title).join("\n");
+        const vulnLabels = edgeVulns.map((v) => v.title).join("\\n");
+        let baseStrokeWidth = 2;
+        let dashArray = "none";
+
+        if (edge.data?.expectedBandwidthMbps) {
+          const bw = edge.data.expectedBandwidthMbps;
+          if (bw > 20000) baseStrokeWidth = 6;
+          else if (bw > 5000) baseStrokeWidth = 4;
+          else if (bw > 1000) baseStrokeWidth = 3;
+        }
+
+        if (edge.data?.trafficPattern === "bursty") {
+          dashArray = "10 5";
+        }
 
         if (isBlocked) {
-          const blockedVuln = edgeVulns.find((v) => v.severity === "low");
+          const blockedVuln = edgeVulns.find(
+            (v) => v.severity === "low" || v.severity === "blocked",
+          );
           return {
             ...edge,
             data: {
@@ -106,31 +121,28 @@
                 ? `🛡 ${blockedVuln.title}`
                 : "🛡 Blocked by DCF",
             },
-            style:
-              "stroke: #ea580c; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;",
+            style: `stroke: #ea580c; stroke-width: ${Math.max(3, baseStrokeWidth)}px; filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.8)); stroke-dasharray: 5 5;`,
             animated: false,
           };
         } else if (isVulnerable) {
           return {
             ...edge,
             data: { ...edge.data, vulnTooltip: `⚠ ${vulnLabels}` },
-            style:
-              "stroke: #ff4444; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8));",
+            style: `stroke: #ff4444; stroke-width: ${Math.max(3, baseStrokeWidth)}px; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.8)); stroke-dasharray: ${dashArray};`,
             animated: true,
           };
         } else if (isSimulated) {
           return {
             ...edge,
             data: { ...edge.data, vulnTooltip: "✓ Secure" },
-            style:
-              "stroke: #10b981; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.8));",
+            style: `stroke: #10b981; stroke-width: ${Math.max(3, baseStrokeWidth)}px; filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.8)); stroke-dasharray: ${dashArray};`,
             animated: true,
           };
         } else {
           return {
             ...edge,
             data: { ...edge.data, vulnTooltip: "" },
-            style: "stroke: var(--text-main); stroke-width: 2;",
+            style: `stroke: var(--text-main); stroke-width: ${baseStrokeWidth}px; stroke-dasharray: ${dashArray};`,
             animated: false,
           };
         }
@@ -140,7 +152,7 @@
         onSimulationComplete(edges);
       }
 
-      const data = parseCanvas(nodes, edges);
+      const data = parseCanvas(nodes, edges, importedDCF);
 
       if (data.terraform || data.kubernetes) {
         generatedCode = data.terraform || "";
@@ -756,6 +768,32 @@
                 <span class="metric-label">Medium Risk</span>
               </div>
               <div class="metric-card">
+                <span
+                  class="metric-value {simulationResult?.vulnerabilities.filter(
+                    (v) => v.category === 'ai',
+                  ).length
+                    ? 'error'
+                    : 'success'}"
+                  >{simulationResult?.vulnerabilities.filter(
+                    (v) => v.category === "ai",
+                  ).length}</span
+                >
+                <span class="metric-label">AI Risk</span>
+              </div>
+              <div class="metric-card">
+                <span
+                  class="metric-value {simulationResult?.vulnerabilities.filter(
+                    (v) => v.category === 'capacity',
+                  ).length
+                    ? 'warning'
+                    : 'success'}"
+                  >{simulationResult?.vulnerabilities.filter(
+                    (v) => v.category === "capacity",
+                  ).length}</span
+                >
+                <span class="metric-label">Capacity Risk</span>
+              </div>
+              <div class="metric-card">
                 <span class="metric-value warning"
                   >{simulationResult?.blockedEdges.length}</span
                 >
@@ -781,18 +819,28 @@
                   class:medium-card={vuln.severity === "medium"}
                 >
                   <div class="vuln-header">
-                    {#if vuln.severity === "low"}
+                    {#if vuln.severity === "low" || vuln.severity === "blocked"}
                       <Shield size={18} color="#ea580c" />
                     {:else if vuln.severity === "medium"}
                       <AlertTriangle size={18} color="#f59e0b" />
                     {:else}
                       <AlertTriangle size={18} color="#ff4444" />
                     {/if}
-                    <h4>{vuln.title}</h4>
+                    <h4>
+                      {#if vuln.category}
+                        <span
+                          style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;"
+                          >[{vuln.category}]</span
+                        >
+                      {/if}
+                      {vuln.title}
+                    </h4>
                     <span class="severity-badge {vuln.severity}"
                       >{vuln.severity === "low"
                         ? "INFO"
-                        : vuln.severity.toUpperCase()}</span
+                        : vuln.severity === "blocked"
+                          ? "BLOCKED"
+                          : vuln.severity.toUpperCase()}</span
                     >
                   </div>
                   <p>{vuln.description}</p>

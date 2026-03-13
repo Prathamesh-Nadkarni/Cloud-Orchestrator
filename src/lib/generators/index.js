@@ -3,8 +3,9 @@ import { generateAzure } from './azure.js';
 import { generateGCP } from './gcp.js';
 import { generateAviatrix } from './aviatrix.js';
 import { generateK8s } from './k8s.js';
+import { generateDCF } from './dcf.js';
 
-export function parseCanvas(nodes, edges) {
+export function parseCanvas(nodes, edges, importedDCF) {
     const hasCloudNodes = nodes.some(n =>
         ['aws', 'azure', 'gcp', 'aviatrix'].includes(n.data.provider) ||
         ['vpc', 'vnet', 'compute', 'storage', 'kubernetes'].includes(n.data.type)
@@ -28,12 +29,14 @@ export function parseCanvas(nodes, edges) {
     const gcpCode = generateGCP(nodes, edges);
     const avxCode = generateAviatrix(nodes, edges);
     const k8sCode = generateK8s(nodes, edges);
+    const dcfCode = importedDCF ? generateDCF(importedDCF) : "";
 
     let finalCode = terraformVars;
     if (awsCode) finalCode += awsCode;
     if (azureCode) finalCode += azureCode;
     if (gcpCode) finalCode += gcpCode;
     if (avxCode) finalCode += avxCode;
+    if (dcfCode) finalCode += dcfCode;
 
     if (nodes.length === 0) {
         finalCode = "# Canvas is empty. Drag and drop resources to generate code.";

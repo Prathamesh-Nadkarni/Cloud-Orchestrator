@@ -22,8 +22,18 @@
     getResourceSchema,
   } from "$lib/blockly/resource-schema";
 
+  import DCFBuilder from "./DCFBuilder.svelte";
+  import type { ImportedDCF } from "$lib/utils/securitySimulator";
+
+  let { importedDCF = $bindable<ImportedDCF | null>(null) } = $props();
+
   let workspace: Blockly.WorkspaceSvg;
   let codeOutput = $state("");
+  let showDCFBuilder = $state(false);
+
+  function handleApplyDCF(dcf: ImportedDCF) {
+    importedDCF = dcf;
+  }
 
   let diagramStatusText = $state("Valid");
   let diagramStatusClass = $state("");
@@ -78,11 +88,18 @@
       <block type="terraform_resource"><field name="TYPE">aviatrix_firewall_policy</field></block>
       <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn</field></block>
       <block type="terraform_resource"><field name="TYPE">aviatrix_fqdn_tag_rule</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_smart_group</field></block>
+      <block type="terraform_resource"><field name="TYPE">aviatrix_distributed_firewalling_policy_list</field></block>
     </category>
     <category name="Logic & Attributes" colour="#5ba55b">
       <block type="terraform_attribute"></block>
       <block type="terraform_nested_block"><field name="NAME">ingress</field></block>
+      <block type="terraform_nested_block"><field name="NAME">egress</field></block>
       <block type="terraform_nested_block"><field name="NAME">tags</field></block>
+      <block type="terraform_nested_block"><field name="NAME">rule</field></block>
+      <block type="terraform_nested_block"><field name="NAME">action</field></block>
+      <block type="terraform_nested_block"><field name="NAME">dynamic</field></block>
+      <block type="terraform_nested_block"><field name="NAME">lifecycle</field></block>
     </category>
   </xml>`;
 
@@ -770,11 +787,25 @@
           alert("Conversion feature requires linking in original events.")}
         >Convert Platform</button
       >
+      <button
+        class="btn-imp"
+        style="margin-left: auto;"
+        onclick={() => (showDCFBuilder = !showDCFBuilder)}
+      >
+        DCF Authoring
+      </button>
     </div>
   </div>
 
   <div class="container glass-panel">
-    <div id="blocklyDiv" class="blockly-container"></div>
+    {#if showDCFBuilder}
+      <DCFBuilder {importedDCF} onApplyDCF={handleApplyDCF} />
+    {/if}
+    <div
+      id="blocklyDiv"
+      class="blockly-container"
+      style="flex: {showDCFBuilder ? 0.6 : 1}"
+    ></div>
 
     <textarea
       id="codeOutput"

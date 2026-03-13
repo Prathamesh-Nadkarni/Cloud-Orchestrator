@@ -1,0 +1,103 @@
+{
+    "nodes": [
+        {
+            "id": "node-internet",
+            "type": "cloud",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "type": "internet",
+                "provider": "aws",
+                "label": "Internet",
+                "name": "public-web"
+            }
+        },
+        {
+            "id": "node-ai-gw",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 100
+            },
+            "data": {
+                "type": "aiGateway",
+                "provider": "aws",
+                "label": "AI Gateway",
+                "name": "ai-frontdoor",
+                "authMode": "none",
+                "internetReachable": true
+            }
+        },
+        {
+            "id": "node-model",
+            "type": "cloud",
+            "position": {
+                "x": 400,
+                "y": 300
+            },
+            "data": {
+                "type": "modelServing",
+                "provider": "aws",
+                "label": "LLM Serving",
+                "name": "llama-3",
+                "authMode": "none",
+                "containsTrainingData": true,
+                "containsPII": true,
+                "redactionEnabled": false
+            }
+        },
+        {
+            "id": "node-vdb",
+            "type": "cloud",
+            "position": {
+                "x": 700,
+                "y": 300
+            },
+            "data": {
+                "type": "vectorDB",
+                "provider": "aws",
+                "label": "Vector Database",
+                "name": "pinecone-index",
+                "containsTrainingData": true,
+                "internetReachable": true
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "edge-1",
+            "source": "node-internet",
+            "target": "node-ai-gw",
+            "data": {
+                "protocol": "tcp",
+                "port": "443"
+            }
+        },
+        {
+            "id": "edge-2",
+            "source": "node-ai-gw",
+            "target": "node-model",
+            "data": {
+                "protocol": "tcp",
+                "port": "8080",
+                "payloadType": "prompts"
+            }
+        },
+        {
+            "id": "edge-3",
+            "source": "node-model",
+            "target": "node-vdb",
+            "data": {
+                "protocol": "tcp",
+                "port": "5432",
+                "trafficClass": "embeddings"
+            }
+        }
+    ],
+    "dcf": {
+        "smartGroups": [],
+        "policies": []
+    }
+}

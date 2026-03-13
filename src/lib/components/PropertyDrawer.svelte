@@ -63,7 +63,18 @@
             }
           }
 
-          updatedEdge.style = `stroke: ${strokeColor}; stroke-width: ${strokeWidth}; stroke-dasharray: ${dashArray};`;
+          if (updatedEdge.data.expectedBandwidthMbps) {
+            const bw = updatedEdge.data.expectedBandwidthMbps;
+            if (bw > 20000) strokeWidth = 6;
+            else if (bw > 5000) strokeWidth = 4;
+            else if (bw > 1000) strokeWidth = 3;
+          }
+
+          if (updatedEdge.data.trafficPattern === "bursty") {
+            dashArray = "10 5";
+          }
+
+          updatedEdge.style = `stroke: ${strokeColor}; stroke-width: ${strokeWidth}px; stroke-dasharray: ${dashArray};`;
           updatedEdge.markerEnd = { type: "arrowclosed", color: strokeColor };
 
           const protoLabel = (updatedEdge.data.protocol || "ALL").toUpperCase();
@@ -316,6 +327,117 @@
           </div>
         {/if}
       {/if}
+
+      <!-- AI Workload Metadata -->
+      {#if selectedNode.data.provider === "ai"}
+        <div
+          class="form-group"
+          style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;"
+        >
+          <label for="data-sensitivity">Data Sensitivity</label>
+          <select
+            id="data-sensitivity"
+            value={selectedNode.data.dataSensitivity || "internal"}
+            onchange={(e) => updateData("dataSensitivity", e.target.value)}
+          >
+            <option value="public">Public</option>
+            <option value="internal">Internal</option>
+            <option value="confidential">Confidential</option>
+            <option value="regulated">Regulated</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="auth-mode">Authentication Mode</label>
+          <select
+            id="auth-mode"
+            value={selectedNode.data.authMode || "none"}
+            onchange={(e) => updateData("authMode", e.target.value)}
+          >
+            <option value="none">None</option>
+            <option value="apiKey">API Key</option>
+            <option value="mTLS">mTLS</option>
+            <option value="IAM">IAM</option>
+            <option value="OAuth">OAuth</option>
+          </select>
+        </div>
+
+        <div class="checkbox-group">
+          <input
+            id="contains-pii"
+            type="checkbox"
+            checked={selectedNode.data.containsPII || false}
+            onchange={(e) => updateData("containsPII", e.target.checked)}
+          />
+          <label for="contains-pii">Contains PII</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input
+            id="redaction-enabled"
+            type="checkbox"
+            checked={selectedNode.data.redactionEnabled || false}
+            onchange={(e) => updateData("redactionEnabled", e.target.checked)}
+          />
+          <label for="redaction-enabled">Data Redaction Enabled</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input
+            id="internet-reachable"
+            type="checkbox"
+            checked={selectedNode.data.internetReachable || false}
+            onchange={(e) => updateData("internetReachable", e.target.checked)}
+          />
+          <label for="internet-reachable">Internet Reachable</label>
+        </div>
+      {/if}
+
+      <!-- Capacity Metadata -->
+      <div
+        class="form-group"
+        style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;"
+      >
+        <label for="expected-bandwidth">Expected Bandwidth (Mbps)</label>
+        <input
+          id="expected-bandwidth"
+          type="number"
+          min="0"
+          value={selectedNode.data.expectedBandwidthMbps || ""}
+          oninput={(e) =>
+            updateData("expectedBandwidthMbps", parseInt(e.target.value))}
+          placeholder="e.g. 1000"
+        />
+      </div>
+
+      <!-- Multicloud Routing -->
+      <div
+        class="form-group"
+        style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;"
+      >
+        <div class="checkbox-group">
+          <input
+            id="requires-ha"
+            type="checkbox"
+            checked={selectedNode.data.requiresHA || false}
+            onchange={(e) => updateData("requiresHA", e.target.checked)}
+          />
+          <label for="requires-ha">Requires High Availability (HA)</label>
+        </div>
+
+        <label for="bgp-asn" style="margin-top: 8px; display: block;"
+          >BGP ASN (optional)</label
+        >
+        <input
+          id="bgp-asn"
+          type="number"
+          min="1"
+          max="4294967295"
+          value={selectedNode.data.bgpAsn || ""}
+          oninput={(e) => updateData("bgpAsn", parseInt(e.target.value))}
+          placeholder="e.g. 65001"
+        />
+      </div>
     </div>
   {:else if selectedEdge}
     <div class="drawer-header">
@@ -381,6 +503,96 @@
           Simulate how Distributed Cloud Firewall policies affect the traffic
           flow between these nodes.
         </p>
+      </div>
+
+      <!-- AI Edge Metadata -->
+      <div
+        class="form-group"
+        style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px;"
+      >
+        <label for="traffic-class">Traffic Class (AI)</label>
+        <select
+          id="traffic-class"
+          value={selectedEdge.data?.trafficClass || "sync"}
+          onchange={(e) => updateEdgeData("trafficClass", e.target.value)}
+        >
+          <option value="sync">General Sync</option>
+          <option value="inference">Inference (Low Latency)</option>
+          <option value="training">Training (High Throughput)</option>
+          <option value="embedding">Embedding</option>
+          <option value="admin">Admin / Control</option>
+          <option value="telemetry">Telemetry</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="payload-type">Payload Type</label>
+        <select
+          id="payload-type"
+          value={selectedEdge.data?.payloadType || "metadata"}
+          onchange={(e) => updateEdgeData("payloadType", e.target.value)}
+        >
+          <option value="metadata">Standard Data</option>
+          <option value="prompts">Prompts</option>
+          <option value="embeddings">Embeddings</option>
+          <option value="modelWeights">Model Weights</option>
+          <option value="trainingData">Training Data</option>
+        </select>
+      </div>
+
+      <!-- Capacity Edge Metadata -->
+      <div class="form-group">
+        <label for="expected-edge-bandwidth"
+          >Expected Edge Bandwidth (Mbps)</label
+        >
+        <input
+          id="expected-edge-bandwidth"
+          type="number"
+          min="0"
+          value={selectedEdge.data?.expectedBandwidthMbps || ""}
+          oninput={(e) =>
+            updateEdgeData("expectedBandwidthMbps", parseInt(e.target.value))}
+          placeholder="e.g. 500"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="max-latency">Max Allowed Latency (ms)</label>
+        <input
+          id="max-latency"
+          type="number"
+          min="0"
+          value={selectedEdge.data?.maxLatencyMs || ""}
+          oninput={(e) =>
+            updateEdgeData("maxLatencyMs", parseInt(e.target.value))}
+          placeholder="e.g. 50"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="monthly-transfer">Expected Monthly Egress (GB)</label>
+        <input
+          id="monthly-transfer"
+          type="number"
+          min="0"
+          value={selectedEdge.data?.monthlyTransferGB || ""}
+          oninput={(e) =>
+            updateEdgeData("monthlyTransferGB", parseInt(e.target.value))}
+          placeholder="e.g. 1000"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="routing-protocol">Routing Protocol</label>
+        <select
+          id="routing-protocol"
+          value={selectedEdge.data?.routingProtocol || "static"}
+          onchange={(e) => updateEdgeData("routingProtocol", e.target.value)}
+        >
+          <option value="static">Static Routing</option>
+          <option value="bgp">BGP</option>
+          <option value="ospf">OSPF</option>
+        </select>
       </div>
     </div>
   {:else}

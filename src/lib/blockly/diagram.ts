@@ -3,6 +3,7 @@
  * Generates Mermaid diagrams from Terraform HCL code
  */
 
+// @ts-ignore
 import HCL from 'js-hcl-parser';
 import { getResourceColor, getResourceCategory, getVendorFromResourceType, ALLOWED_VENDORS, RESOURCE_CATEGORIES } from './resource-schema.js';
 
@@ -34,7 +35,7 @@ function extractAllReferences(obj: any, refs: any[] = []) {
   } else if (Array.isArray(obj)) {
     obj.forEach(item => extractAllReferences(item, refs));
   } else if (obj && typeof obj === 'object') {
-    Object.values(obj).forEach(value => extractAllReferences(value, refs));
+    Object.keys(obj).forEach(key => extractAllReferences(obj[key], refs));
   }
   return refs;
 }
@@ -42,10 +43,10 @@ function extractAllReferences(obj: any, refs: any[] = []) {
 /**
  * Get provider color based on resource type (vendor color)
  */
-function getProviderColor(resourceType: any) {
+function getProviderColor(resourceType: string) {
   const vendor = getVendorFromResourceType(resourceType);
-  if (vendor && ALLOWED_VENDORS[vendor]) {
-    return ALLOWED_VENDORS[vendor].color;
+  if (vendor && ALLOWED_VENDORS[vendor as keyof typeof ALLOWED_VENDORS]) {
+    return ALLOWED_VENDORS[vendor as keyof typeof ALLOWED_VENDORS].color;
   }
   return '#666666';
 }
@@ -53,10 +54,10 @@ function getProviderColor(resourceType: any) {
 /**
  * Get provider name from resource type
  */
-function getProviderName(resourceType: any) {
+function getProviderName(resourceType: string) {
   const vendor = getVendorFromResourceType(resourceType);
-  if (vendor && ALLOWED_VENDORS[vendor]) {
-    return ALLOWED_VENDORS[vendor].name;
+  if (vendor && ALLOWED_VENDORS[vendor as keyof typeof ALLOWED_VENDORS]) {
+    return ALLOWED_VENDORS[vendor as keyof typeof ALLOWED_VENDORS].name;
   }
   return 'Other';
 }
@@ -74,8 +75,8 @@ export function generateDiagram(hclString: any) {
 
     // Use a simplified parser approach - extract resources using regex
     // This is more forgiving than full HCL parsing
-    const resources = [];
-    const relationships = [];
+    const resources: any[] = [];
+    const relationships: any[] = [];
 
     // Extract resource blocks using regex with brace counting for nested blocks
     const resourcePattern = /resource\s+"([^"]+)"\s+"([^"]+)"\s*\{/g;
@@ -112,7 +113,7 @@ export function generateDiagram(hclString: any) {
     // Process each resource - first collect all resources
     resourceMatches.forEach(resource => {
       const category = getResourceCategory(resource.type);
-      const categoryColor = RESOURCE_CATEGORIES[category].color;
+      const categoryColor = RESOURCE_CATEGORIES[category as keyof typeof RESOURCE_CATEGORIES]?.color || '#999999';
 
       resources.push({
         type: resource.type,
@@ -161,7 +162,7 @@ export function generateDiagram(hclString: any) {
     let mermaidCode = 'graph TB\n';
 
     // Group resources by provider
-    const resourcesByProvider = {};
+    const resourcesByProvider: Record<string, any[]> = {};
     resources.forEach(resource => {
       if (!resourcesByProvider[resource.provider]) {
         resourcesByProvider[resource.provider] = [];
@@ -173,7 +174,8 @@ export function generateDiagram(hclString: any) {
     Object.keys(resourcesByProvider).forEach((provider, idx) => {
       const providerResources = resourcesByProvider[provider];
       const subgraphId = `subgraph${idx}`;
-      const vendorConfig = ALLOWED_VENDORS[getVendorFromResourceType(providerResources[0].type)];
+      const vendorType = getVendorFromResourceType(providerResources[0].type);
+      const vendorConfig = vendorType ? ALLOWED_VENDORS[vendorType as keyof typeof ALLOWED_VENDORS] : null;
       const providerColor = vendorConfig ? vendorConfig.color : '#666666';
 
       mermaidCode += `    subgraph ${subgraphId}["${provider}"]\n`;
@@ -181,7 +183,7 @@ export function generateDiagram(hclString: any) {
 
       providerResources.forEach(resource => {
         const nodeId = `${resource.type.replace(/[^a-zA-Z0-9]/g, '_')}_${resource.name}`;
-        const categoryName = RESOURCE_CATEGORIES[resource.category].name;
+        const categoryName = RESOURCE_CATEGORIES[resource.category as keyof typeof RESOURCE_CATEGORIES]?.name || 'Other';
         const displayName = `${resource.type}<br/><b>${resource.name}</b><br/><small>${categoryName}</small>`;
         mermaidCode += `        ${nodeId}["${displayName}"]\n`;
         // Use category color for nodes, with vendor border
@@ -257,7 +259,7 @@ function cleanHCLForValidation(hclString: any) {
   }
 
   // 9. Handle empty provider blocks - ensure they have at least an empty features block or something
-  cleaned = cleaned.replace(/provider\s+"[^"]+"\s*\{\s*\}/g, (match) => {
+  cleaned = cleaned.replace(/provider\s+"[^"]+"\s*\{\s*\}/g, (match: string) => {
     // If it's azurerm, add features {}
     if (match.includes('azurerm')) {
       return match.replace(/\{\s*\}/, '{\n  features {}\n}');

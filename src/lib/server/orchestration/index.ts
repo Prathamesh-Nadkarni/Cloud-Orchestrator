@@ -59,6 +59,18 @@ export class OrchestrationWorker {
             return { jobId, status: 'APPROVAL_REQUIRED', findings: policyResult.findings };
         }
 
+        if (policyResult.decision === 'DENY') {
+            await AuditLogger.log({
+                tenantId: params.tenantId,
+                actorId: params.userId,
+                action: 'ORCHESTRATION_BLOCKED',
+                status: 'SUCCESS',
+                targetRef: jobId,
+                metadata: { findings: policyResult.findings }
+            });
+            return { jobId, status: 'BLOCKED_BY_POLICY', findings: policyResult.findings };
+        }
+
         // 2. Queue for asynchronous execution
         this.runBackgroundTask(jobId, params);
 

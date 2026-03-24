@@ -2,8 +2,7 @@
 
 A visual, drag-and-drop platform to design multi-cloud architectures, enforce security policies, and generate production-ready Terraform & Kubernetes manifests — all from a single canvas.
 
-[**Live Preview**](https://prathamesh-nadkarni.github.io/Cloud-Orchestrator/) | [**Feature Guide**](./docs/FEATURES.md) | [**Architecture Roadmap**](./ARCHITECTURE.md) | [**Operations Guide**](./OPERATIONS.md)
-
+[**Live Preview**](https://prathamesh-nadkarni.github.io/Cloud-Orchestrator/) | [**Feature Guide**](./docs/FEATURES.md) 
 ---
 
 ## What It Does
@@ -19,6 +18,29 @@ Cloud Orchestrator turns architectural diagrams into deployable infrastructure. 
 - Hierarchical nesting: VPCs → Subnets → Security Groups → Compute, with provider-matching rules
 - **3D Isometric View** toggle for Cloudcraft-style volumetric rendering
 - Real-time **cost estimation** badge with per-resource breakdown
+
+### Aviatrix Multi-Cloud Networking
+Cloud Orchestrator natively supports **Aviatrix** — the enterprise multi-cloud networking platform that simplifies connectivity, security, and operations across AWS, Azure, and GCP.
+
+**Why Aviatrix?**
+- **Simplified Multi-Cloud Transit**: Replaces complex VPN/TGW/VNet peering with an elegant hub-and-spoke architecture using Transit and Spoke Gateways
+- **FireNet Integration**: Centralized egress/ingress security with next-gen firewall insertion (Palo Alto, Fortinet, Check Point)
+- **Distributed Cloud Firewall (DCF)**: Cloud-native microsegmentation with stateful L4 rules enforced at every gateway — no more sprawling security group management
+- **Global Transit Mesh**: Scale to hundreds of VPCs/VNets across regions and clouds with automated route propagation
+- **Operational Visibility**: Single pane of glass for troubleshooting, flow logs, and policy enforcement
+
+**Aviatrix Resources in Cloud Orchestrator:**
+- **Transit Gateway**: Hub gateway in a region (e.g., `aws-east-transit`, `azure-west-transit`)
+- **Spoke Gateway**: Connects VPCs/VNets to the transit hub
+- **FireNet**: Security domain for next-gen firewall integration
+- **DCF Policy**: Microsegmentation rules enforced across all gateways (see [Security Simulation](#security-simulation-engine))
+
+**Use Cases:**
+- **Multi-Cloud Architectures**: Connect AWS, Azure, and GCP VPCs without complex peering or VPN tunnels
+- **Zero-Trust Microsegmentation**: Use DCF policies to restrict lateral movement between workloads
+- **Centralized Egress Security**: Route all internet-bound traffic through FireNet with firewall inspection
+
+Learn more at [aviatrix.com](https://aviatrix.com) or explore the **Multi-Cloud & Aviatrix** sample architectures in the Tutorial panel.
 
 ### Smart Drag & Drop
 - **Drop-zone highlighting** — when dragging a resource, valid placement targets glow with a pulsing border

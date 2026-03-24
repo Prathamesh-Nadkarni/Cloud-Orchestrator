@@ -988,6 +988,7 @@
         Generate Manifests
       {/if}
     </button>
+  </div>
 
 {#if showAdminModal}
   <AdminReviewModal 
@@ -1225,16 +1226,25 @@
             </div>
           </div>
         {:else}
-          <TerraformEditor
-            bind:code={activeTab === "terraform" ? generatedCode : generatedK8s}
-            type={activeTab}
-            onSave={(newCode: string) => handleSaveTerraform(newCode, activeTab)}
-          />
+          {#if activeTab === "terraform"}
+            <TerraformEditor
+              bind:code={generatedCode}
+              type="terraform"
+              onSave={(newCode) => handleSaveTerraform(newCode, "terraform")}
+            />
+          {:else}
+            <TerraformEditor
+              bind:code={generatedK8s}
+              type="kubernetes"
+              onSave={(newCode) => handleSaveTerraform(newCode, "kubernetes")}
+            />
+          {/if}
         {/if}
       </div>
     </div>
   </div>
 {/if}
+</nav>
 
 <style>
   .top-nav {

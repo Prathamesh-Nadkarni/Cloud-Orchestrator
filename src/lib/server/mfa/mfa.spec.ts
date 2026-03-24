@@ -1,9 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MfaService } from './index';
 // Mocks to avoid hitting DB inside unit tests
 vi.mock('../audit', () => ({
     AuditLogger: { log: vi.fn() }
 }));
+vi.mock('../db', () => ({
+    prisma: {
+        session: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
+        mfaChallenge: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() }
+    }
+}));
+
+import { MfaService } from './index';
 
 describe('MfaService', () => {
     it('should create a valid challenge', async () => {

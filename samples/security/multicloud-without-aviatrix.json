@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "id": "aws-vpc-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 50 },
+      "data": {
+        "type": "vpc",
+        "provider": "aws",
+        "label": "AWS Production VPC",
+        "cidr": "10.0.0.0/16",
+        "region": "us-east-1"
+      },
+      "measured": { "width": 700, "height": 500 }
+    },
+    {
+      "id": "azure-vnet-1",
+      "type": "cloud",
+      "position": { "x": 850, "y": 50 },
+      "data": {
+        "type": "vnet",
+        "provider": "azure",
+        "label": "Azure Production VNet",
+        "cidr": "10.1.0.0/16",
+        "region": "eastus"
+      },
+      "measured": { "width": 700, "height": 500 }
+    },
+    {
+      "id": "aws-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "subnet",
+        "provider": "aws",
+        "label": "App Subnet",
+        "cidr": "10.0.1.0/24"
+      },
+      "measured": { "width": 300, "height": 350 }
+    },
+    {
+      "id": "azure-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "azure-vnet-1",
+      "data": {
+        "type": "subnet",
+        "provider": "azure",
+        "label": "App Subnet",
+        "cidr": "10.1.1.0/24"
+      },
+      "measured": { "width": 300, "height": 350 }
+    },
+    {
+      "id": "aws-ec2-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 100 },
+      "parentId": "aws-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "aws",
+        "label": "Web Server",
+        "size": "t3.medium"
+      }
+    },
+    {
+      "id": "azure-vm-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 100 },
+      "parentId": "azure-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "azure",
+        "label": "API Server",
+        "size": "Standard_D2s_v3"
+      }
+    },
+    {
+      "id": "internet-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": -200 },
+      "data": {
+        "type": "internet",
+        "provider": "external",
+        "label": "Internet"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "internet-1",
+      "target": "aws-vpc-1",
+      "type": "default",
+      "animated": true,
+      "label": "HTTPS:443",
+      "style": "stroke: #ef4444; stroke-width: 2;",
+      "data": { "protocol": "https", "port": "443" }
+    },
+    {
+      "id": "edge-2",
+      "source": "aws-vpc-1",
+      "target": "azure-vnet-1",
+      "type": "default",
+      "animated": false,
+      "label": "Direct Peering ❌",
+      "style": "stroke: #ef4444; stroke-width: 3; stroke-dasharray: 5,5;",
+      "data": { "protocol": "blocked", "port": "*" }
+    }
+  ]
+}

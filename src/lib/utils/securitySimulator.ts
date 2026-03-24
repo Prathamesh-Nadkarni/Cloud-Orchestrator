@@ -122,23 +122,26 @@ export interface ImportedDCF {
 // Evaluators
 // -----------------------------------------------------------------------------
 
-function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, dcf?: ImportedDCF): Vulnerability[] {
+function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, dcf?: ImportedDCF, normalizedRules?: any[]): Vulnerability[] {
     const vulns: Vulnerability[] = [];
-    if (!dcf || dcf.policies.length === 0) return vulns;
 
     const protocol = (edge.data.protocol || "any").toLowerCase();
     const port = edge.data.port || "any";
 
     const getMatchingGroups = (node: NodeData) => {
         const matchedGroups: string[] = [];
-        for (const sg of dcf.smartGroups) {
-            const matches = (sg.matchExpressions || []).every(expr => {
-                if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data.type === expr.value;
-                if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data.label === expr.value;
-                if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data.label?.includes(expr.value);
-                return false;
-            });
-            if (matches) matchedGroups.push(sg.name);
+
+        // 1. Legacy SmartGroups
+        if (dcf) {
+            for (const sg of dcf.smartGroups) {
+                const matches = (sg.matchExpressions || []).every(expr => {
+                    if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data.type === expr.value;
+                    if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data.label === expr.value;
+                    if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data.label?.includes(expr.value);
+                    return false;
+                });
+                if (matches) matchedGroups.push(sg.name);
+            }
         }
         return matchedGroups;
     };
@@ -146,23 +149,56 @@ function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, 
     const srcGroups = getMatchingGroups(srcNode);
     const dstGroups = getMatchingGroups(dstNode);
 
-    for (const policy of dcf.policies) {
-        const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
-        const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
-        const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
-        const portMatch = (policy.port || "any").toLowerCase() === "any" || policy.port === port;
+    // 1. Evaluate Normalized Rules (New Engine) - First Match Wins
+    if (normalizedRules && normalizedRules.length > 0) {
+        for (const rule of normalizedRules) {
+            const srcValues = rule.srcMatch?.values || [];
+            const dstValues = rule.dstMatch?.values || [];
 
-        if (srcMatch && dstMatch && protocolMatch && portMatch) {
-            if (policy.action === "DENY") {
-                vulns.push({
-                    edgeId: edge.id,
-                    category: 'dcf',
-                    title: `Traffic Blocked by DCF Policy: ${policy.name}`,
-                    description: `Policy '${policy.name}' dropped traffic from ${srcNode.data.label || srcNode.data.type} to ${dstNode.data.label || dstNode.data.type}.`,
-                    severity: "blocked"
-                });
+            const srcMatch = srcValues.includes("ANY") || srcValues.includes("*") ||
+                srcValues.some((v: any) => srcGroups.includes(v) || srcNode.data.label === v || srcNode.data.type === v);
+
+            const dstMatch = dstValues.includes("ANY") || dstValues.includes("*") ||
+                dstValues.some((v: any) => dstGroups.includes(v) || dstNode.data.label === v || dstNode.data.type === v);
+
+            const protocolMatch = rule.protocol.toLowerCase() === "any" || rule.protocol.toLowerCase() === protocol;
+            const portMatch = rule.ports.length === 0 || rule.ports.includes(parseInt(port)) || port === "any" || port === "*";
+
+            if (srcMatch && dstMatch && protocolMatch && portMatch) {
+                if (rule.action === "DENY") {
+                    vulns.push({
+                        edgeId: edge.id,
+                        category: 'dcf',
+                        title: `Blocked by DCF Rule: ${rule.name}`,
+                        description: `Rule '${rule.name}' (Priority ${rule.priority}) denied traffic from ${srcNode.data.label} to ${dstNode.data.label}.`,
+                        severity: "blocked"
+                    });
+                }
+                return vulns; // deterministic: first match wins
             }
-            break;
+        }
+    }
+
+    // 2. Fallback to Legacy Policies
+    if (dcf && dcf.policies.length > 0) {
+        for (const policy of dcf.policies) {
+            const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
+            const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
+            const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
+            const portMatch = (policy.port || "any").toLowerCase() === "any" || policy.port === port;
+
+            if (srcMatch && dstMatch && protocolMatch && portMatch) {
+                if (policy.action === "DENY") {
+                    vulns.push({
+                        edgeId: edge.id,
+                        category: 'dcf',
+                        title: `Blocked by DCF Policy: ${policy.name}`,
+                        description: `Policy '${policy.name}' dropped traffic from ${srcNode.data.label || srcNode.data.type} to ${dstNode.data.label || dstNode.data.type}.`,
+                        severity: "blocked"
+                    });
+                }
+                break;
+            }
         }
     }
     return vulns;
@@ -307,7 +343,7 @@ function evaluateCapacityRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeD
     return vulns;
 }
 
-export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedDCF?: ImportedDCF): SimulationResult {
+export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedDCF?: ImportedDCF, normalizedRules?: any[]): SimulationResult {
     const vulnerabilities: Vulnerability[] = [];
     const simulatedEdges = new Set<string>();
     const blockedEdges = new Set<string>();
@@ -336,7 +372,7 @@ export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedD
             const targetNode = nodes.find((n) => n.id === edge.target);
             if (!targetNode || !currentNode) continue;
 
-            const dcfVulns = evaluateDCFRules(currentNode, targetNode, edge, importedDCF);
+            const dcfVulns = evaluateDCFRules(currentNode, targetNode, edge, importedDCF, normalizedRules);
             let trafficBlocked = false;
 
             if (dcfVulns.length > 0) {

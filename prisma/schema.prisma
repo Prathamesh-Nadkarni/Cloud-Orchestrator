@@ -1,0 +1,792 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------
+// IDENTITY & TENANCY
+// ----------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                 UserTenantMembership[]
+  cloudConnections      CloudConnection[]
+  activationGrants      ActivationGrant[]
+  threatRules           ThreatRule[]
+  protocolSensitivities ProtocolSensitivityPolicy[]
+  assetClassifications  AssetClassification[]
+  findings              Finding[]
+  
+  // Expanded Requirements
+  approvalRequests      ApprovalRequest[]
+  approvalPolicies      ApprovalPolicy[]
+  policyBundles         PolicyBundle[]
+  simulationRuns        SimulationRun[]
+  emergencyActions      EmergencyControlAction[]
+  breakGlassRequests    BreakGlassRequest[]
+
+  // Diagram Lifecycle
+  diagrams              InfrastructureDiagram[]
+  deploymentRuns        DeploymentRun[]
+  securityPolicies      SecurityPolicy[]
+}
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  name                  String?
+  mfaEnabled            Boolean   @default(false)
+  mfaSecret             String?   // TOTP secret or reference
+  passwordHash          String?   // Scaffolded, in prod prefer OIDC or Passkeys
+  webauthnCredentials   Json?     // Scaffolded list of allowed FIDO2 authenticators
+  createdAt             DateTime  @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships UserTenantMembership[]
+  sessions    Session[]
+  
+  approvalAssignments   ApprovalAssignment[]
+  approvalDecisions     ApprovalDecision[]
+  approvalRequests      ApprovalRequest[]
+  breakGlassRequests    BreakGlassRequest[]
+  diagrams              InfrastructureDiagram[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  
+  // High-value abstractions for session pinning and risk
+  ipAddress String?
+  userAgent String?
+  
+  // Step-up claims: has the user completed MFA recently for this session?
+  mfaVerifiedAt DateTime?
+
+  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  permissions String[] // Simple array of strings for capability-based execution policy
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships UserTenantMembership[]
+}
+
+model UserTenantMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  tenantId  String
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, tenantId])
+}
+
+// ----------------------------------------------------------------------
+// CLOUD CONNECTIONS & SECRETS
+// ----------------------------------------------------------------------
+
+model CloudConnection {
+  id          String @id @default(uuid())
+  tenantId    String
+  provider    String // 'AWS', 'AZURE', 'GCP'
+  displayName String
+
+  connectionMode String // E.g., 'DELEGATED_IDENTITY', 'SEALED_SECRET'
+  bootstrapMode  String // E.g., 'MANUAL', 'OIDC', 'BOOTSTRAP_INSTALLER'
+  
+  // No plaintext secrets.
+  delegatedIdentityRefs Json?
+  ciphertextRef         String?
+
+  policyId           String?
+  activationPolicyId String?
+  editPolicyId       String?
+
+  allowedActionScopes String[]
+  allowedRegions      String[]
+  allowedEnvironments String[]
+
+  state         String // 'UNBOUND', 'SEALED', 'ACTIVE_RUNTIME', 'LOCKED', 'LOCKED_FOR_EDIT'
+  rotationState String?
+  riskState     String?
+
+  // Emergency Controls [NEW]
+  quarantineState String @default("NONE") // 'NONE', 'QUARANTINED', 'ISOLATED'
+  killSwitchActive Boolean @default(false)
+
+  lastMfaAt       DateTime?
+  lastActivatedAt DateTime?
+  lastEditedAt    DateTime?
+  lastUsedAt      DateTime?
+  auditRef        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  activationGrants ActivationGrant[]
+  approvalRequests ApprovalRequest[]
+}
+
+model ActivationGrant {
+  id             String    @id @default(uuid())
+  tenantId       String
+  connectionId   String
+  provider       String
+  issuedToWorker String
+  issuedForActions String[]
+  issuedByUserId String
+  
+  mfaVerifiedAt DateTime?
+  ttl           Int       // Seconds
+  status        String    // 'REQUESTED', 'MFA_PENDING', 'APPROVED', 'ACTIVE', 'EXPIRED', 'REVOKED'
+  riskScore     Float?
+  
+  attestationRequired Boolean @default(false)
+  policySnapshot      Json?
+  auditRef            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
+  connection CloudConnection @relation(fields: [connectionId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// APPROVAL WORKFLOW PLANE [NEW]
+// ----------------------------------------------------------------------
+
+model ApprovalRequest {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  userId                String
+  connectionId          String?
+  workflowId            String?
+  findingId             String?
+  reason                String
+  type                  String   // e.g., 'BOOTSTRAP', 'DESTRUCTIVE_ACTION', 'BREAK_GLASS'
+  requiredApproverCount Int      @default(1)
+  status                String   // 'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED'
+  requestedAt           DateTime @default(now())
+  expiresAt             DateTime
+  decidedAt             DateTime?
+  decisionNotes         String?
+  auditRef              String?
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+  connection CloudConnection? @relation(fields: [connectionId], references: [id])
+  decisions  ApprovalDecision[]
+  assignments ApprovalAssignment[]
+}
+
+model ApprovalPolicy {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  name                  String
+  actionType            String
+  requiredApproverCount Int      @default(1)
+  approverScope         String   // e.g., 'ADMIN', 'SECURITY'
+  escalationAfter       Int?     // Seconds
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model ApprovalDecision {
+  id        String   @id @default(uuid())
+  requestId String
+  userId    String
+  decision  String   // 'APPROVED', 'REJECTED'
+  notes     String?
+  decidedAt DateTime @default(now())
+
+  request ApprovalRequest @relation(fields: [requestId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+}
+
+model ApprovalAssignment {
+  id        String   @id @default(uuid())
+  requestId String
+  userId    String
+  status    String   // 'PENDING', 'COMPLETED'
+
+  request ApprovalRequest @relation(fields: [requestId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// BREAK-GLASS & EMERGENCY PLANE [NEW]
+// ----------------------------------------------------------------------
+
+model BreakGlassRequest {
+  id           String   @id @default(uuid())
+  tenantId     String
+  userId       String
+  reason       String
+  status       String   // 'PENDING', 'ACTIVE', 'REVOKED'
+  expiresAt    DateTime
+  mfaVerifiedAt DateTime?
+  
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model EmergencyControlAction {
+  id         String   @id @default(uuid())
+  tenantId   String
+  actionType String   // 'QUARANTINE', 'KILL_SWITCH', 'REVOKE_GRANTS'
+  targetRef  String?
+  actorId    String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// POLICY INHERITANCE & BUNDLES [NEW]
+// ----------------------------------------------------------------------
+
+model PolicyBundle {
+  id          String   @id @default(uuid())
+  tenantId    String?  // Null if system-wide
+  name        String
+  description String?
+  type        String   // 'SYSTEM', 'TENANT', 'ENVIRONMENT'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  threatRules           ThreatRule[]
+  protocolSensitivities ProtocolSensitivityPolicy[]
+  responsePolicies      ResponsePolicy[]
+  tenant                Tenant?                     @relation(fields: [tenantId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// THREAT POLICY & GOVERNANCE
+// ----------------------------------------------------------------------
+
+model ThreatRule {
+  id               String  @id @default(uuid())
+  tenantId         String
+  name             String
+  description      String?
+  category         String
+  enabled          Boolean @default(true)
+  detectionType    String
+  
+  environmentScope String[]
+  assetScope       String[]
+  protocolScope    String[]
+  
+  thresholdConfig  Json?
+  severityDefault  String
+  severityOverride String?
+  
+  responsePolicyId String?
+  createdBy        String
+  updatedBy        String
+
+  // Inheritance
+  bundleId         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bundle PolicyBundle? @relation(fields: [bundleId], references: [id])
+}
+
+model ResponsePolicy {
+  id               String  @id @default(uuid())
+  name             String
+  severity         String
+  requireMfa       Boolean @default(false)
+  requireApproval  Boolean @default(false)
+  blockAction      Boolean @default(false)
+  autoRemediate    Boolean @default(false)
+  relockConnection Boolean @default(false)
+  
+  notifyChannels   String[]
+  incidentTemplate String?
+  cooldownPolicy   Json?
+  environmentScope String[]
+
+  // Inheritance
+  bundleId         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  bundle PolicyBundle? @relation(fields: [bundleId], references: [id])
+}
+
+model ProtocolSensitivityPolicy {
+  id               String  @id @default(uuid())
+  tenantId         String
+  protocol         String
+  port             String
+  sourceScope      String[]
+  destinationScope String[]
+  severity         String
+  requireMfa       Boolean @default(false)
+  requireApproval  Boolean @default(false)
+  blockOnWidening  Boolean @default(false)
+  environmentScope String[]
+
+  // Inheritance
+  bundleId         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bundle PolicyBundle? @relation(fields: [bundleId], references: [id])
+}
+
+model AssetClassification {
+  id                 String  @id @default(uuid())
+  tenantId           String
+  provider           String
+  resourceType       String
+  sensitivity        String
+  criticality        String
+  crownJewelFlag     Boolean @default(false)
+  regulatedFlag      Boolean @default(false)
+  internetFacingFlag Boolean @default(false)
+  internalOnlyFlag   Boolean @default(false)
+  disposableFlag     Boolean @default(false)
+  environment        String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model Finding {
+  id               String  @id @default(uuid())
+  tenantId         String
+  sourceEngine     String
+  findingType      String
+  provider         String
+  
+  assetRefs        String[]
+  pathRefs         String[]
+  
+  severity         String
+  confidence       Float
+  triggeredRules   String[]
+  responsePolicy   Json?
+  suggestedActions String[]
+  
+  mfaRequired      Boolean @default(false)
+  approvalRequired Boolean @default(false)
+  
+  status           String // 'OPEN', 'RESOLVED', 'IGNORED'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// SIMULATION & IMPACT [NEW]
+// ----------------------------------------------------------------------
+
+model SimulationRun {
+  id           String   @id @default(uuid())
+  tenantId     String
+  status       String   // 'PENDING', 'RUNNING', 'COMPLETED', 'FAILED'
+  type         String   // 'POLICY_CHANGE', 'PROTOCOL_SENSITIVITY'
+  inputConfig  Json
+  deltaResults Json?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+// ----------------------------------------------------------------------
+// DIAGRAM LIFECYCLE & IAC
+// ----------------------------------------------------------------------
+
+model InfrastructureDiagram {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  ownerId             String
+  name                String
+  description         String?
+  providers           String[] // List of cloud providers used (aws, azure, gcp)
+  topologySnapshot    Json     // Current visual topology (nodes/edges)
+  resourceConfig      Json     // Current configuration payload
+  currentVersionId    String?
+  status              DiagramStatus @default(DRAFT)
+  syncState           SyncState     @default(SYNCED)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  owner               User     @relation(fields: [ownerId], references: [id])
+  versions            DiagramVersion[]
+  deploymentRuns      DeploymentRun[]
+  autosave            DiagramAutosave?
+}
+
+enum DiagramStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SyncState {
+  SYNCED
+  DIVERGED
+  REGEN_REQUIRED
+  REVIEW_REQUIRED
+}
+
+model DiagramVersion {
+  id                  String   @id @default(uuid())
+  diagramId           String
+  versionNumber       Int
+  diagramSnapshot     Json     // The topology/config at this version
+  terraformArtifactId String?   @unique
+  changeSummary       String?
+  sourceMode          VersionSourceMode @default(DIAGRAM)
+  validationStatus    String   @default("PENDING")
+  createdBy           String
+  createdAt           DateTime @default(now())
+
+  diagram             InfrastructureDiagram @relation(fields: [diagramId], references: [id])
+  terraformArtifact   TerraformArtifact?    @relation(fields: [terraformArtifactId], references: [id])
+}
+
+enum VersionSourceMode {
+  DIAGRAM
+  TERRAFORM_EDIT
+  SYNCED_IMPORT
+}
+
+model TerraformArtifact {
+  id                  String   @id @default(uuid())
+  diagramId           String
+  diagramVersionId    String?  @unique
+  fileManifest        Json     // List of files and metadata
+  storageRef          String?  // Reference to external blob storage if used
+  generationMode      String   @default("STANDARD")
+  generatorVersion    String   @default("1.0.0")
+  validationStatus    String   @default("UNVALIDATED")
+  createdAt           DateTime @default(now())
+
+  files               TerraformFile[]
+  diagramVersion      DiagramVersion? // Inverse relation
+}
+
+model TerraformFile {
+  id                  String   @id @default(uuid())
+  artifactId          String
+  path                String   // e.g. "main.tf"
+  filename            String
+  type                String   // "hcl", "json", "tfvars"
+  content             String   @db.Text
+  hash                String
+  isEditable          Boolean  @default(true)
+
+  artifact            TerraformArtifact @relation(fields: [artifactId], references: [id])
+}
+
+model DeploymentRun {
+  id                  String   @id @default(uuid())
+  diagramId           String
+  versionId           String
+  artifactId          String
+  tenantId            String
+  initiatedById       String
+  executionMode       String   @default("PLAN_APPLY")
+  targetScope         String?  // environment name or region
+  status              RunStatus @default(QUEUED)
+  planSummary         Json?
+  applySummary        Json?
+  logRef              String?  // Pointer to logs
+  errorRef            String?
+  startedAt           DateTime @default(now())
+  completedAt         DateTime?
+
+  diagram             InfrastructureDiagram @relation(fields: [diagramId], references: [id])
+  tenant              Tenant                @relation(fields: [tenantId], references: [id])
+}
+
+enum RunStatus {
+  QUEUED
+  PLANNING
+  PLAN_FAILED
+  AWAITING_APPROVAL
+  APPLYING
+  SUCCEEDED
+  FAILED
+  DESTROYING
+  DESTROYED
+}
+
+model DiagramAutosave {
+  id                  String   @id @default(uuid())
+  diagramId           String   @unique
+  userId              String
+  tempSnapshot        Json
+  createdAt           DateTime @default(now())
+  expiresAt           DateTime
+
+  diagram             InfrastructureDiagram @relation(fields: [diagramId], references: [id])
+}
+// ----------------------------------------------------------------------
+// VENDOR MARKETPLACE & PLUGIN SYSTEM [NEW]
+// ----------------------------------------------------------------------
+
+model Vendor {
+  id                 String   @id @default(uuid())
+  tenantId           String?  // If vendor is tied to a specific tenant (e.g. private partner)
+  displayName        String
+  slug               String   @unique
+  description        String?
+  website            String?
+  logoRef            String?
+  supportEmail       String?
+  status             String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  verificationStatus String   @default("UNVERIFIED") // UNVERIFIED, VERIFIED, PARTNER
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  products           VendorProduct[]
+  submissions        VendorSubmission[]
+}
+
+model VendorProduct {
+  id                 String   @id @default(uuid())
+  vendorId           String
+  name               String
+  slug               String   @unique
+  category           String   // Networking, Security, etc.
+  description        String?
+  shortDescription   String?
+  logoRef            String?
+  website            String?
+  documentationRef   String?
+  supportedProviders String[] // aws, azure, gcp, k8s
+  supportedEnvironments String[]
+  pricingModel       String?
+  trialAvailable     Boolean  @default(false)
+  subscriptionLink   String?
+  marketplaceStatus  String   @default("DRAFT") // DRAFT, PUBLISHED, HIDDEN
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  vendor             Vendor   @relation(fields: [vendorId], references: [id])
+  packages           VendorPackage[]
+  pricingMetadata    VendorPricingMetadata?
+}
+
+model VendorPackage {
+  id                   String   @id @default(uuid())
+  vendorId             String
+  productId            String
+  version              String
+  packageFormatVersion String   @default("1.0.0")
+  manifestRef          String?  // Reference to file storage
+  topologyDefinitionRef String?
+  terraformDefinitionRef String?
+  securityModelRef     String?
+  pricingRef           String?
+  docsRef              String?
+  reviewStatus         String   @default("DRAFT") // DRAFT, SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED
+  publishStatus        String   @default("UNPUBLISHED") // UNPUBLISHED, PUBLISHED, DEPRECATED
+  compatibilityMatrix  Json?
+  signature            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  product              VendorProduct @relation(fields: [productId], references: [id])
+  versions             VendorPackageVersion[]
+  topologyComponents   VendorTopologyComponent[]
+  terraformModules     VendorTerraformModule[]
+  securityModels       VendorSecurityModel[]
+}
+
+model VendorPackageVersion {
+  id               String   @id @default(uuid())
+  packageId        String
+  version          String
+  changelog        String?
+  createdBy        String
+  createdAt        DateTime @default(now())
+  reviewStatus     String
+  publishStatus    String
+  integrityHash    String?
+
+  package          VendorPackage @relation(fields: [packageId], references: [id])
+}
+
+model VendorTopologyComponent {
+  id                  String   @id @default(uuid())
+  packageId           String
+  nodeType            String
+  displayName         String
+  iconRef             String?
+  category            String?
+  supportedConnections Json?
+  portDefinitions      Json?
+  defaultProperties    Json?
+  visualStyle          Json?
+  canvasCapabilities   Json?
+
+  package             VendorPackage @relation(fields: [packageId], references: [id])
+}
+
+model VendorTerraformModule {
+  id                 String   @id @default(uuid())
+  packageId          String
+  sourceType         String   // E.g., 'EMBEDDED', 'REGISTRY', 'GIT'
+  moduleSource       String
+  supportedProviders String[]
+  inputSchema        Json?
+  outputSchema       Json?
+  fileManifest       Json?
+  editableFlags      Json?
+  validationStatus   String   @default("UNVALIDATED")
+
+  package            VendorPackage @relation(fields: [packageId], references: [id])
+}
+
+model VendorSecurityModel {
+  id                     String   @id @default(uuid())
+  packageId              String
+  capabilityTags         String[]
+  protectsAssets         String[]
+  trafficEffects         Json?
+  policyEffects          Json?
+  attackPathEffects      Json?
+  detectionCapabilities  String[]
+  blockingCapabilities   String[]
+  observabilityCapabilities String[]
+
+  package                VendorPackage @relation(fields: [packageId], references: [id])
+}
+
+model VendorPricingMetadata {
+  id               String   @id @default(uuid())
+  productId        String   @unique
+  pricingModel     String
+  trialAvailable   Boolean  @default(false)
+  trialDetails     String?
+  subscriptionLink String?
+  contactSalesLink String?
+  marketplaceLink  String?
+  usageNotes       String?
+
+  product          VendorProduct @relation(fields: [productId], references: [id])
+}
+
+model VendorSubmission {
+  id             String   @id @default(uuid())
+  vendorId       String
+  packageId      String
+  submissionType String   // GITHUB, UPLOAD, INTERNAL
+  sourceRef      String?
+  status         String   // PENDING, REVIEWING, APPROVED, REJECTED
+  submittedAt    DateTime @default(now())
+  decidedAt      DateTime?
+  notes          String?
+
+  vendor         Vendor   @relation(fields: [vendorId], references: [id])
+  reviews        PackageReview[]
+}
+
+model PackageReview {
+  id             String   @id @default(uuid())
+  submissionId   String
+  reviewerId     String
+  status         String   // PENDING, APPROVED, REJECTED, CHANGES_REQUESTED
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  submission     VendorSubmission @relation(fields: [submissionId], references: [id])
+  decisions      ReviewDecision[]
+}
+
+model ReviewDecision {
+  id        String   @id @default(uuid())
+  reviewId  String
+  decision  String   // APPROVED, REJECTED
+  notes     String?
+  createdAt DateTime @default(now())
+
+  review    PackageReview @relation(fields: [reviewId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// DISTRIBUTED CLOUD FIREWALL (DCF) [NEW]
+// ----------------------------------------------------------------------
+
+model SecurityPolicy {
+  id          String   @id @default(uuid())
+  tenantId    String
+  diagramId   String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant  Tenant                @relation(fields: [tenantId], references: [id])
+  diagram InfrastructureDiagram @relation(fields: [diagramId], references: [id])
+  rules   FirewallRule[]
+}
+
+model FirewallRule {
+  id          String   @id @default(uuid())
+  policyId    String
+  name        String
+  priority    Int      // Lower = higher precedence
+  layer       String   // DNAT, NETWORK, APPLICATION, WAF, RATE_LIMIT, DEFAULT
+  action      String   // ALLOW, DENY, CHALLENGE, QUARANTINE, RATE_LIMIT, INSPECT, LOG_ONLY
+  
+  protocol    String   // TCP, UDP, ICMP, ANY
+  ports       Int[]    // Specific ports or empty for ANY
+  
+  // Normalized match criteria
+  srcMatch    Json     // { types: ['cidr', 'tag', 'group'], values: [...] }
+  dstMatch    Json
+  
+  isWildcard  Boolean  @default(false)
+  description String?
+  metadata    Json?    // Provider-specific hints or tags
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  policy      SecurityPolicy @relation(fields: [policyId], references: [id])
+}

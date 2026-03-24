@@ -13,7 +13,9 @@
     HardDrive,
     Cpu,
     Blocks,
+    Search,
   } from "lucide-svelte";
+  import { globalState, clearDragState } from "$lib/client/state.svelte";
 
   const providers = [
     {
@@ -103,22 +105,56 @@
     },
   ];
 
+  let searchQuery = $state("");
+
+  let filteredProviders = $derived(
+    providers
+      .map((p) => ({
+        ...p,
+        resources: p.resources.filter(
+          (r) =>
+            r.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+      }))
+      .filter((p) => p.resources.length > 0),
+  );
+
   const onDragStart = (event, resourceType, label, providerId) => {
     event.dataTransfer.setData("application/svelteflow", resourceType);
     event.dataTransfer.setData("application/label", label);
     event.dataTransfer.setData("application/provider", providerId);
     event.dataTransfer.effectAllowed = "move";
+    globalState.dragContext = { type: resourceType, provider: providerId };
+  };
+
+  const onDragEnd = () => {
+    clearDragState();
   };
 </script>
 
 <aside class="sidebar glass-panel">
   <div class="sidebar-header">
     <h3>Resources</h3>
-    <p>Drag onto the canvas</p>
+    <p class="sidebar-hint">Drag blocks onto the canvas to build your architecture</p>
+    <div class="search-box">
+      <Search size={14} class="search-icon" />
+      <input
+        type="text"
+        placeholder="Search blocks..."
+        bind:value={searchQuery}
+      />
+    </div>
   </div>
 
   <div class="provider-list">
-    {#each providers as provider}
+    {#if filteredProviders.length === 0}
+      <div class="empty-sidebar">
+        <Search size={32} opacity="0.2" />
+        <p>No blocks found</p>
+      </div>
+    {/if}
+    {#each filteredProviders as provider}
       <div class="provider-section">
         <div
           class="provider-header"
@@ -135,11 +171,14 @@
               draggable={true}
               ondragstart={(e) =>
                 onDragStart(e, resource.type, resource.label, provider.id)}
+              ondragend={onDragEnd}
+              title="Drag to canvas — {resource.label}"
             >
               <div class="resource-icon" style="color: {provider.color}">
-                <resource.icon size={20} />
+                <resource.icon size={18} />
               </div>
               <span class="resource-label">{resource.label}</span>
+              <div class="drag-grip">⠿</div>
             </div>
           {/each}
         </div>
@@ -150,7 +189,7 @@
 
 <style>
   .sidebar {
-    width: 280px;
+    width: 260px;
     height: 100%;
     border-radius: 0;
     border-top: none;
@@ -158,40 +197,91 @@
     border-left: none;
     display: flex;
     flex-direction: column;
-    background: rgba(15, 17, 21, 0.85); /* Slightly darker */
+    background: rgba(15, 17, 21, 0.85);
     z-index: 40;
   }
 
   .sidebar-header {
-    padding: 24px 20px 16px;
+    padding: 20px 16px 16px;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .sidebar-header h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin: 0;
     letter-spacing: -0.3px;
   }
 
-  .sidebar-header p {
-    font-size: 0.85rem;
+  .sidebar-hint {
+    font-size: 0.72rem;
     color: var(--text-muted);
+    margin: 0;
+    line-height: 1.3;
+    opacity: 0.7;
+  }
+
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0 12px;
+    transition: all 0.2s;
+  }
+
+  .search-box:focus-within {
+    border-color: var(--accent-primary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .search-icon {
+    color: var(--text-muted);
+  }
+
+  .search-box input {
+    background: none;
+    border: none;
+    color: var(--text-main);
+    padding: 8px;
+    flex: 1;
+    outline: none;
+    font-size: 0.85rem;
+  }
+
+  .empty-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    text-align: center;
+    gap: 12px;
+  }
+
+  .empty-sidebar p {
+    font-size: 0.85rem;
   }
 
   .provider-list {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
   }
 
   .provider-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   .provider-header {
@@ -200,17 +290,17 @@
   }
 
   .provider-header h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-main);
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
   }
 
   .resource-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 6px;
   }
 
   .resource-item {
@@ -218,13 +308,14 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px 8px;
+    gap: 6px;
+    padding: 10px 6px 8px;
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     cursor: grab;
     transition: all 0.2s ease;
+    position: relative;
   }
 
   .resource-item:hover {
@@ -232,6 +323,10 @@
     border-color: var(--border-focus);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .resource-item:hover .drag-grip {
+    opacity: 0.6;
   }
 
   .resource-item:active {
@@ -243,16 +338,29 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 6px;
   }
 
   .resource-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-align: center;
     color: var(--text-muted);
     font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .drag-grip {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    letter-spacing: -1px;
   }
 </style>

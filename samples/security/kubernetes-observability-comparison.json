@@ -1,0 +1,164 @@
+{
+  "nodes": [
+    {
+      "id": "aws-vpc-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 200 },
+      "data": {
+        "type": "vpc",
+        "provider": "aws",
+        "label": "Production VPC",
+        "cidr": "10.0.0.0/16"
+      },
+      "measured": { "width": 900, "height": 700 }
+    },
+    {
+      "id": "aws-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "subnet",
+        "provider": "aws",
+        "label": "EKS Subnet",
+        "cidr": "10.0.1.0/24"
+      },
+      "measured": { "width": 450, "height": 450 }
+    },
+    {
+      "id": "aws-eks-1",
+      "type": "cloud",
+      "position": { "x": 40, "y": 100 },
+      "parentId": "aws-subnet-1",
+      "data": {
+        "type": "kubernetes",
+        "provider": "aws",
+        "label": "EKS Production",
+        "count": 5,
+        "version": "1.28"
+      },
+      "measured": { "width": 370, "height": 300 }
+    },
+    {
+      "id": "datadog-apm",
+      "type": "vendor",
+      "position": { "x": 520, "y": 100 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Datadog",
+        "label": "APM + Infrastructure Agent",
+        "category": "Observability",
+        "color": "#632CA6",
+        "integrationMode": "agent_telemetry",
+        "hierarchy": "inside_vpc",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": true,
+          "network_access": true
+        },
+        "configuration": {
+          "deploymentType": "daemonset",
+          "scope": "per-node-agent",
+          "apmEnabled": true,
+          "npmEnabled": true
+        },
+        "description": "Datadog agent runs as DaemonSet on EACH K8s node — collects metrics, traces, logs from within the VPC",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "datadog-kubehound",
+      "type": "vendor",
+      "position": { "x": 520, "y": 310 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Datadog",
+        "label": "Kubehound (Cluster Analysis)",
+        "category": "Observability",
+        "color": "#632CA6",
+        "integrationMode": "cluster_analysis",
+        "hierarchy": "inside_vpc",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": false,
+          "network_access": true,
+          "kubernetes_access": true
+        },
+        "configuration": {
+          "deploymentType": "cluster-level",
+          "scope": "entire-cluster",
+          "analysisMode": "attack-path",
+          "monitoredClusters": ["aws-eks-1"]
+        },
+        "description": "Kubehound runs as its own pod and analyzes the ENTIRE cluster's attack paths — not a per-node agent, but still inside the VPC",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "prisma-cloud-1",
+      "type": "vendor",
+      "position": { "x": 1050, "y": 400 },
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Palo Alto Networks",
+        "label": "Prisma Cloud Compute",
+        "category": "CNAPP",
+        "color": "#FA582D",
+        "integrationMode": "api_connector",
+        "hierarchy": "external",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": false,
+          "network_access": true
+        },
+        "configuration": {
+          "computeDefender": true,
+          "twistlockEnabled": true,
+          "containerScanning": true
+        },
+        "description": "SaaS CNAPP — scans containers via cloud APIs from outside the VPC",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-apm-eks",
+      "source": "datadog-apm",
+      "target": "aws-eks-1",
+      "type": "default",
+      "animated": true,
+      "label": "Node Agents (DaemonSet)",
+      "style": "stroke: #632CA6; stroke-width: 2;",
+      "data": { "protocol": "agent", "port": "443", "note": "Runs on every K8s worker node inside VPC" }
+    },
+    {
+      "id": "edge-kubehound-eks",
+      "source": "datadog-kubehound",
+      "target": "aws-eks-1",
+      "type": "default",
+      "animated": true,
+      "label": "Cluster Analysis",
+      "style": "stroke: #632CA6; stroke-width: 2; stroke-dasharray: 5,5;",
+      "data": { "protocol": "api", "port": "443", "note": "Analyzes entire cluster for attack paths — runs inside VPC as a pod" }
+    },
+    {
+      "id": "edge-prisma-scan",
+      "source": "prisma-cloud-1",
+      "target": "aws-vpc-1",
+      "type": "default",
+      "animated": true,
+      "label": "Container Scan (API)",
+      "style": "stroke: #FA582D; stroke-width: 2; stroke-dasharray: 5,5;",
+      "data": { "protocol": "api", "port": "443", "note": "Scans from outside the VPC via cloud APIs" }
+    }
+  ]
+}

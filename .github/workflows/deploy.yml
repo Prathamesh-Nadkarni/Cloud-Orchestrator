@@ -26,8 +26,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Build
         run: npm run build
+        env:
+          # Use a mock or temporary DB URL for build-time static generation if needed,
+          # though adapter-static usually doesn't need it if routes are prerendered.
+          DATABASE_URL: "file:./dev.db"
 
       - name: Upload Artifacts
         uses: actions/upload-pages-artifact@v3

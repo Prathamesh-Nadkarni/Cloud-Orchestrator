@@ -17,9 +17,18 @@
     Box,
     HelpCircle,
     FileCode,
+    Terminal,
+    History,
+    ShieldAlert,
+    Sparkles,
   } from "lucide-svelte";
   import { toPng } from "html-to-image";
+  import { fade } from "svelte/transition";
   import CostBreakdown from "./CostBreakdown.svelte";
+  import DiagramListModal from "./DiagramListModal.svelte";
+  import VersionHistoryModal from "./VersionHistoryModal.svelte";
+  import TerraformEditor from "./TerraformEditor.svelte";
+  import DeploymentModal from "./DeploymentModal.svelte";
   import {
     simulateDataFlow,
     type Vulnerability,
@@ -27,6 +36,12 @@
     type ImportedDCF,
   } from "$lib/utils/securitySimulator";
   import { parseCanvas } from "$lib/generators/index.js";
+  import { parseHclToDiagram } from "$lib/utils/hclParser";
+  import MarketplaceModal from "./MarketplaceModal.svelte";
+  import AdminReviewModal from "./AdminReviewModal.svelte";
+  import FirewallManager from "./security/FirewallManager.svelte";
+  import { ShoppingBag, Settings, Terminal as TerminalIcon, ShieldCheck } from "lucide-svelte";
+  import { globalState, toggleDCFMode } from "$lib/client/state.svelte";
 
   let {
     nodes = $bindable(),
@@ -34,11 +49,44 @@
     currentView = $bindable(),
     viewMode = $bindable("2d"),
     showTutorial = $bindable(false),
+    showSuggestions = $bindable(false),
     importedDCF = $bindable<ImportedDCF | null>(null),
     generatedCode = $bindable(""),
     onSimulationComplete = () => {},
+    onDeploy = () => {},
   } = $props();
+
+  let currentDiagramId = $state<string | null>(null);
+  let currentVersionId = $state<string | null>(null);
+  let diagramName = $state("Untitled Diagram");
+  let showLoadModal = $state(false);
+  let showHistoryModal = $state(false);
+  let showDeploymentModal = $state(false);
+  let showMarketplaceModal = $state(false);
+  let showAdminModal = $state(false);
+  let showFirewallManager = $state(false);
+  let showDCFDropdown = $state(false);
   let isGenerating = $state(false);
+
+  $effect(() => {
+    globalState.currentDiagramId = currentDiagramId;
+  });
+
+  // Sync Tracking
+  let lastSavedSnapshot = $state("");
+  let lastSavedTerraform = $state("");
+  let lastSavedK8s = $state("");
+
+  let syncStatus = $derived.by(() => {
+    if (!currentDiagramId) return "UNSAVED";
+    const diagramDiverged =
+      lastSavedSnapshot !== JSON.stringify({ nodes, edges });
+    const codeDiverged =
+      generatedCode !== lastSavedTerraform || generatedK8s !== lastSavedK8s;
+
+    if (diagramDiverged || codeDiverged) return "DIVERGED";
+    return "SYNCED";
+  });
   let showResult = $state(false);
   let generatedK8s = $state("");
   let activeTab = $state("terraform");
@@ -98,11 +146,24 @@
         };
       });
 
+      // Fetch normalized security rules if a diagram exists
+      let normalizedRules = null;
+      if (currentDiagramId) {
+        try {
+          const res = await fetch(`/api/security/policies/${currentDiagramId}`);
+          const policyData = await res.json();
+          normalizedRules = policyData.sortedRules;
+        } catch (e) {
+          console.error("Failed to fetch security policy for generation", e);
+        }
+      }
+
       // Run data flow simulation
       simulationResult = simulateDataFlow(
         nodes,
         edges,
         importedDCF || undefined,
+        normalizedRules || undefined
       );
 
       // Highlight edges dynamically based on simulation result
@@ -175,7 +236,7 @@
         onSimulationComplete(edges);
       }
 
-      const data = parseCanvas(nodes, edges, importedDCF);
+      const data = parseCanvas(nodes, edges, importedDCF, normalizedRules);
 
       if (data.terraform || data.kubernetes) {
         generatedCode = data.terraform || "";
@@ -195,6 +256,67 @@
   function closeResult() {
     showResult = false;
     copied = false;
+  }
+
+  async function handleSaveTerraform(
+    newCode: string,
+    type: string,
+    syncBack = false,
+  ) {
+    if (!currentDiagramId) {
+      alert("Save the diagram first to enable cloud persistence.");
+      return;
+    }
+
+    try {
+      if (syncBack && type === "terraform") {
+        if (
+          confirm(
+            "This will overwrite your current visual diagram with resources parsed from the manual Terraform edits. Continue?",
+          )
+        ) {
+          const parsed = parseHclToDiagram(newCode);
+          nodes = parsed.nodes;
+          edges = parsed.edges;
+        } else {
+          return;
+        }
+      }
+
+      const res = await fetch("/api/diagrams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: currentDiagramId,
+          sourceMode: "TERRAFORM",
+          manualTerraform: type === "terraform" ? newCode : generatedCode,
+          manualK8s: type === "kubernetes" ? newCode : generatedK8s,
+          topologySnapshot: { nodes, edges },
+          resourceConfig: {},
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        if (type === "terraform") {
+          generatedCode = newCode;
+          lastSavedTerraform = newCode;
+        } else {
+          generatedK8s = newCode;
+          lastSavedK8s = newCode;
+        }
+        lastSavedSnapshot = JSON.stringify({ nodes, edges });
+        alert(
+          syncBack
+            ? "Divergence resolved! Diagram synced with manual overrides."
+            : "Terraform overrides persisted to cloud!",
+        );
+      } else {
+        alert("Manual save failed: " + result.error);
+      }
+    } catch (err) {
+      alert("Error during sync/save.");
+      console.error(err);
+    }
   }
 
   function copyCode() {
@@ -219,24 +341,68 @@
     URL.revokeObjectURL(url);
   }
 
-  function saveLayout() {
-    const layout = JSON.stringify({ nodes, edges });
-    localStorage.setItem("multicloud-layout", layout);
-    alert("Layout saved to local storage!");
+  async function saveLayout() {
+    try {
+      const res = await fetch("/api/diagrams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: currentDiagramId,
+          name: diagramName,
+          topologySnapshot: { nodes, edges },
+          resourceConfig: {},
+          providers: Array.from(
+            new Set(nodes.map((n: any) => n.data.provider)),
+          ),
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        if (result.diagram) currentDiagramId = result.diagram.id;
+        lastSavedSnapshot = JSON.stringify({ nodes, edges });
+        alert("Diagram saved successfully to cloud!");
+      } else {
+        alert("Save failed: " + result.error);
+      }
+    } catch (err) {
+      alert("Network error during save.");
+    }
   }
 
-  function loadLayout() {
-    const layoutStr = localStorage.getItem("multicloud-layout");
-    if (layoutStr) {
-      try {
-        const layout = JSON.parse(layoutStr);
-        nodes = layout.nodes || [];
-        edges = layout.edges || [];
-      } catch (e) {
-        alert("Failed to parse saved layout.");
+  async function handleSelectDiagram(diagram: any) {
+    try {
+      const res = await fetch(`/api/diagrams/${diagram.id}`);
+      const data = await res.json();
+      if (data.diagram) {
+        currentDiagramId = data.diagram.id;
+        diagramName = data.diagram.name;
+        // The service stores { nodes, edges } inside topologySnapshot
+        nodes = data.diagram.topologySnapshot.nodes || [];
+        edges = data.diagram.topologySnapshot.edges || [];
+        lastSavedSnapshot = JSON.stringify({ nodes, edges });
+
+        // Load the actual latest files if available
+        if (data.latestFiles) {
+          const tfFile = data.latestFiles.find(
+            (f: any) => f.path === "main.tf",
+          );
+          const k8sFile = data.latestFiles.find(
+            (f: any) => f.path === "kubernetes.yaml",
+          );
+          if (tfFile) {
+            generatedCode = tfFile.content;
+            lastSavedTerraform = tfFile.content;
+          }
+          if (k8sFile) {
+            generatedK8s = k8sFile.content;
+            lastSavedK8s = k8sFile.content;
+          }
+        }
+      } else {
+        alert("Failed to load diagram: " + data.error);
       }
-    } else {
-      alert("No saved layout found.");
+    } catch (err) {
+      alert("Network error loading diagram.");
     }
   }
 
@@ -394,24 +560,36 @@
     reader.readAsText(file);
   }
 
-  function importDCF(event: Event) {
+  async function handleJSONPolicyUpload(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          importedDCF = JSON.parse(content);
-          alert(
-            `Successfully loaded DCF Policy profile with ${importedDCF?.policies.length} rules.`,
-          );
-        } catch (error) {
-          alert("Error parsing DCF Policy JSON file");
-          console.error(error);
+    if (!file || !currentDiagramId) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const uploadData = JSON.parse(content);
+        const policies = uploadData.policies || uploadData.rules || [];
+        
+        // POST each rule to the backend
+        let successCount = 0;
+        for (const rule of policies) {
+          const res = await fetch(`/api/security/policies/${currentDiagramId}/rules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rule)
+          });
+          if (res.ok) successCount++;
         }
-      };
-      reader.readAsText(file);
-    }
+        
+        alert(`Successfully imported ${successCount} policies to the diagram.`);
+      } catch (err) {
+        alert("Failed to parse or upload JSON policies.");
+        console.error(err);
+      }
+      (event.target as HTMLInputElement).value = "";
+    };
+    reader.readAsText(file);
   }
 
   function downloadImage() {
@@ -563,6 +741,7 @@
   }
 </script>
 
+
 <svelte:window onkeydown={handleKeydown} />
 
 <nav class="top-nav glass-panel">
@@ -594,58 +773,207 @@
   <CostBreakdown bind:isOpen={showCostBreakdown} {nodes} />
 
   <div class="actions">
-    <button
-      class="action-btn"
-      onclick={loadTemplate}
-      title="Load 3-Tier App Blueprint"
+    <!-- Status -->
+    <div
+      class="sync-status"
+      class:diverged={syncStatus === "DIVERGED"}
+      class:synced={syncStatus === "SYNCED"}
     >
-      <LayoutTemplate size={16} /> Template
-    </button>
+      <div class="status-dot"></div>
+      <span
+        >{syncStatus === "DIVERGED"
+          ? "Diverged"
+          : syncStatus === "SYNCED"
+            ? "Synced"
+            : "Draft"}</span
+      >
+    </div>
+
     <div class="divider"></div>
-    <button
-      class="action-btn"
-      onclick={() => (showTutorial = true)}
-      title="Show Tutorial"
-    >
-      <HelpCircle size={16} /> Tutorial
-    </button>
-    <button
-      class="action-btn"
-      class:active={viewMode === "3d"}
-      onclick={() => (viewMode = viewMode === "2d" ? "3d" : "2d")}
-      title="Toggle 3D View"
-    >
-      <Box size={16} />
-      {viewMode === "3d" ? "2D View" : "3D View"}
-    </button>
+
+    <!-- Help & Discovery Group -->
+    <div class="btn-group" aria-label="Help & Discovery">
+      <button
+        class="action-btn"
+        onclick={loadTemplate}
+        title="Load a starter 3-Tier App blueprint onto the canvas"
+      >
+        <LayoutTemplate size={16} /> <span class="btn-label">Template</span>
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => (showTutorial = true)}
+        title="Open the tutorial guide and sample architectures"
+      >
+        <HelpCircle size={16} /> <span class="btn-label">Tutorial</span>
+      </button>
+      <button
+        class="action-btn suggestions-btn"
+        onclick={() => (showSuggestions = !showSuggestions)}
+        title="AI-powered security product recommendations for your architecture"
+      >
+        <Sparkles size={16} /> <span class="btn-label">Suggestions</span>
+      </button>
+    </div>
+
     <div class="divider"></div>
-    <button class="action-btn" onclick={saveLayout} title="Save to Browser">
-      <Save size={16} /> Save
-    </button>
-    <button class="action-btn" onclick={loadLayout} title="Load from Browser">
-      <Upload size={16} /> Load
-    </button>
-    <button class="action-btn" onclick={exportLayout} title="Export JSON">
-      <FileDown size={16} /> JSON
-    </button>
-    <label class="action-btn file-import-btn" title="Import JSON">
-      <FileUp size={16} /> JSON
-      <input type="file" accept=".json" onchange={importLayout} />
-    </label>
-    <label
-      class="action-btn file-import-btn"
-      title="Import Terraform File (.tf)"
+
+    <!-- View Group -->
+    <div class="btn-group" aria-label="View controls">
+      <button
+        class="action-btn"
+        class:active={viewMode === "3d"}
+        onclick={() => (viewMode = viewMode === "2d" ? "3d" : "2d")}
+        title={viewMode === "3d" ? "Switch to flat 2D view" : "Switch to isometric 3D view"}
+      >
+        <Box size={16} />
+        <span class="btn-label">{viewMode === "3d" ? "2D" : "3D"}</span>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Persistence Group -->
+    <div class="btn-group" aria-label="Save & Load">
+      <button class="action-btn" onclick={saveLayout} title="Save diagram to cloud database">
+        <Save size={16} /> <span class="btn-label">Save</span>
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => (showLoadModal = true)}
+        title="Load a previously saved diagram"
+      >
+        <Upload size={16} /> <span class="btn-label">Load</span>
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => (showHistoryModal = true)}
+        disabled={!currentDiagramId}
+        title="Browse and restore past versions of this diagram"
+      >
+        <History size={16} /> <span class="btn-label">History</span>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Security & Governance Group -->
+    <div class="btn-group" aria-label="Security & Governance">
+      <div class="dcf-dropdown-container">
+        <button 
+          class="action-btn security-btn" 
+          class:active={globalState.dcfModeEnabled}
+          onclick={() => showDCFDropdown = !showDCFDropdown}
+          title="Distributed Cloud Firewall controls — toggle DCF mode, upload policies, open console"
+        >
+          <ShieldAlert size={16} color={globalState.dcfModeEnabled ? "#10b981" : "#f59e0b"} /> 
+          <span class="btn-label">DCF</span>
+        </button>
+
+        {#if showDCFDropdown}
+          <div class="dcf-dropdown glass-panel" in:fade={{ duration: 100 }}>
+            <div class="dropdown-header">
+              <ShieldCheck size={14} />
+              <span>DCF CONTROLS</span>
+            </div>
+            
+            <div class="dropdown-item toggle-row">
+              <span>Enabled</span>
+              <button 
+                class="toggle-switch" 
+                class:on={globalState.dcfModeEnabled}
+                onclick={(e) => { e.stopPropagation(); toggleDCFMode(); }}
+              ></button>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <button class="dropdown-item" onclick={() => { showFirewallManager = true; showDCFDropdown = false; }}>
+              <TerminalIcon size={14} />
+              <span>Advanced Console</span>
+            </button>
+
+            <label class="dropdown-item file-upload">
+              <Upload size={14} />
+              <span>Upload Policies</span>
+              <input type="file" accept=".json" onchange={handleJSONPolicyUpload} hidden />
+            </label>
+          </div>
+        {/if}
+      </div>
+      <button
+        class="action-btn"
+        onclick={() => (showAdminModal = true)}
+        title="Review governance controls, approval workflows, and audit logs"
+      >
+        <Shield size={16} color="#8b5cf6" /> <span class="btn-label">Govern</span>
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => (showMarketplaceModal = true)}
+        title="Browse and install security vendor integrations"
+      >
+        <ShoppingBag size={16} color="var(--accent-avx)" /> <span class="btn-label">Market</span>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Import / Export Group -->
+    <div class="btn-group" aria-label="Import & Export">
+      <button class="action-btn" onclick={exportLayout} title="Export architecture as JSON file">
+        <FileDown size={16} />
+      </button>
+      <label class="action-btn file-import-btn" title="Import an architecture JSON file">
+        <FileUp size={16} />
+        <input type="file" accept=".json" onchange={importLayout} />
+      </label>
+      <label
+        class="action-btn file-import-btn"
+        title="Import a Terraform .tf file to auto-generate canvas nodes"
+      >
+        <FileCode size={16} color="#8b5cf6" />
+        <input type="file" accept=".tf" onchange={importTerraform} />
+      </label>
+      <label class="action-btn file-import-btn" title="Import DCF policy rules from a JSON file">
+        <Shield size={16} color="var(--accent-avx)" />
+        <input type="file" accept=".json" onchange={importDCF} />
+      </label>
+      <button class="action-btn" onclick={downloadImage} title="Export canvas as a PNG image">
+        <Image size={16} />
+      </button>
+    </div>
+
+    <!-- Lifecycle -->
+    <button
+      class="action-btn lifecycle-btn"
+      onclick={() => (showDeploymentModal = true)}
+      disabled={!currentDiagramId}
+      title="Manage deployment lifecycle — Plan, Apply, Destroy operations"
     >
-      <FileCode size={16} color="#8b5cf6" /> .tf
-      <input type="file" accept=".tf" onchange={importTerraform} />
-    </label>
-    <label class="action-btn file-import-btn" title="Import DCF Policies">
-      <Shield size={16} color="var(--accent-avx)" /> DCF
-      <input type="file" accept=".json" onchange={importDCF} />
-    </label>
-    <button class="action-btn" onclick={downloadImage} title="Export PNG Image">
-      <Image size={16} /> PNG
+      <Terminal size={16} /> <span class="btn-label">Lifecycle</span>
     </button>
+
+    <DiagramListModal
+      bind:isOpen={showLoadModal}
+      onSelect={handleSelectDiagram}
+    />
+
+    <VersionHistoryModal
+      bind:isOpen={showHistoryModal}
+      diagramId={currentDiagramId}
+      onRestore={(v: any) => {
+        nodes = v.diagramSnapshot.nodes || [];
+        edges = v.diagramSnapshot.edges || [];
+        alert(`Restored to version ${v.versionNumber}`);
+      }}
+    />
+
+    <DeploymentModal
+      bind:isOpen={showDeploymentModal}
+      diagramId={currentDiagramId}
+      currentVersionId={currentVersionId}
+    />
 
     <button
       class="generate-btn"
@@ -660,8 +988,21 @@
         Generate Manifests
       {/if}
     </button>
-  </div>
-</nav>
+
+{#if showAdminModal}
+  <AdminReviewModal 
+    bind:isOpen={showAdminModal} 
+    onClose={() => (showAdminModal = false)} 
+  />
+{/if}
+
+{#if showFirewallManager && currentDiagramId}
+  <FirewallManager
+    diagramId={currentDiagramId}
+    bind:isOpen={showFirewallManager}
+    onClose={() => showFirewallManager = false}
+  />
+{/if}
 
 {#if showResult}
   <div
@@ -884,9 +1225,11 @@
             </div>
           </div>
         {:else}
-          <pre><code
-              >{activeTab === "terraform" ? generatedCode : generatedK8s}</code
-            ></pre>
+          <TerraformEditor
+            bind:code={activeTab === "terraform" ? generatedCode : generatedK8s}
+            type={activeTab}
+            onSave={(newCode: string) => handleSaveTerraform(newCode, activeTab)}
+          />
         {/if}
       </div>
     </div>
@@ -898,19 +1241,21 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 24px;
-    height: 64px;
+    padding: 0 16px;
+    height: 56px;
     border-radius: 0;
     border-left: none;
     border-right: none;
     border-top: none;
     z-index: 50;
+    gap: 8px;
   }
 
   .brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    flex-shrink: 0;
   }
 
   .logo-icon {
@@ -997,27 +1342,118 @@
   .actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
+    overflow-x: auto;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .btn-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    padding: 2px;
+  }
+
+  .btn-group .action-btn {
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .btn-group .action-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .btn-label {
+    pointer-events: none;
   }
 
   .action-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
   }
 
   .action-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     color: white;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .action-btn.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #818cf8;
+  }
+
+  .lifecycle-btn {
+    border-color: rgba(249, 17, 110, 0.2);
+    color: var(--accent-avx);
+  }
+
+  .lifecycle-btn:hover {
+    background: rgba(249, 17, 110, 0.1);
+    border-color: rgba(249, 17, 110, 0.4);
+  }
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-left: 12px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .sync-status.synced {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+  }
+  .sync-status.synced .status-dot {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+  }
+
+  .sync-status.diverged {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+  }
+  .sync-status.diverged .status-dot {
+    background: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
   }
 
   .divider {
@@ -1039,25 +1475,135 @@
   .generate-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: linear-gradient(135deg, var(--accent-primary) 0%, #818cf8 100%);
-    color: white;
+    gap: 6px;
+    background: linear-gradient(135deg, #10b981, #059669);
     border: none;
-    padding: 8px 20px;
+    color: white;
+    padding: 8px 16px;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    box-shadow: var(--neon-glow);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
   }
 
-  .generate-btn:hover:not(:disabled) {
+  .generate-btn:hover {
+    background: linear-gradient(135deg, #059669, #047857);
     transform: translateY(-1px);
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.7);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
   }
 
   .generate-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* DCF Dropdown Styles */
+  .dcf-dropdown-container {
+    position: relative;
+  }
+
+  .dcf-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 200px;
+    background: rgba(15, 17, 21, 0.98);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+  }
+
+  .dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 6px 8px;
+  }
+
+  .toggle-row {
+    justify-content: space-between;
+    cursor: default;
+  }
+
+  .toggle-row:hover {
+    background: transparent;
+  }
+
+  .toggle-switch {
+    width: 34px;
+    height: 18px;
+    background: #334155;
+    border-radius: 20px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    padding: 0;
+  }
+
+  .toggle-switch::before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s;
+  }
+
+  .toggle-switch.on {
+    background: #10b981;
+  }
+
+  .toggle-switch.on::before {
+    transform: translateX(16px);
+  }
+
+  .file-upload {
+    cursor: pointer;
   }
 
   .spinner {

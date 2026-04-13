@@ -5,7 +5,7 @@ import { generateAviatrix } from './aviatrix.js';
 import { generateK8s } from './k8s.js';
 import { generateDCF } from './dcf.js';
 
-export function parseCanvas(nodes, edges, importedDCF, normalizedRules) {
+export function parseCanvas(nodes, edges, importedDCF) {
     const hasCloudNodes = nodes.some(n =>
         ['aws', 'azure', 'gcp', 'aviatrix'].includes(n.data.provider) ||
         ['vpc', 'vnet', 'compute', 'storage', 'kubernetes'].includes(n.data.type)
@@ -18,10 +18,12 @@ export function parseCanvas(nodes, edges, importedDCF, normalizedRules) {
 
     let terraformVars = "";
     if (hasCloudNodes) {
-        terraformVars = `# --- Variables (Example) ---\n`;
-        terraformVars += `variable "aviatrix_controller_ip" { default = "x.x.x.x" }\n`;
-        terraformVars += `variable "aviatrix_username" { default = "admin" }\n`;
-        terraformVars += `variable "aviatrix_password" { default = "password" }\n\n`;
+        terraformVars = `# --- Variables ---\n`;
+        terraformVars += `# Set via TF_VAR_aviatrix_controller_ip env var or a .tfvars file (do not hardcode).\n`;
+        terraformVars += `variable "aviatrix_controller_ip" {}\n`;
+        terraformVars += `variable "aviatrix_username" {}\n`;
+        terraformVars += `# Never commit a default password. Supply via TF_VAR_aviatrix_password or Vault.\n`;
+        terraformVars += `variable "aviatrix_password" { sensitive = true }\n\n`;
     }
 
     const awsCode = generateAWS(nodes, edges);
@@ -29,7 +31,7 @@ export function parseCanvas(nodes, edges, importedDCF, normalizedRules) {
     const gcpCode = generateGCP(nodes, edges);
     const avxCode = generateAviatrix(nodes, edges);
     const k8sCode = generateK8s(nodes, edges);
-    const dcfCode = (importedDCF || normalizedRules) ? generateDCF({ ...importedDCF, normalizedRules }) : "";
+    const dcfCode = importedDCF ? generateDCF(importedDCF) : "";
 
     let finalCode = terraformVars;
     if (awsCode) finalCode += awsCode;

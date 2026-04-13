@@ -76,6 +76,7 @@
 
             <div class="total-summary">
                 <span class="label">Estimated Total Monthly Cost</span>
+                <div class="mock-badge">APPROXIMATE — not real pricing data</div>
                 <div class="amount-row">
                     <span class="currency">$</span>
                     <span class="amount">{totalCost.toFixed(2)}</span>
@@ -111,9 +112,13 @@
 
             <div class="panel-footer">
                 <p class="disclaimer">
-                    * Costs are estimated based on standard on-demand pricing
-                    and exclude data transfer, taxes, and specialized managed
-                    service fees.
+                    ⚠ These figures are rough approximations derived from
+                    simplified size-tier mappings (e.g. "micro" ≈ $8/mo). They
+                    are <strong>not</strong> sourced from live AWS, Azure, or GCP
+                    pricing APIs. Actual costs depend on region, reserved
+                    pricing, data-transfer fees, taxes, and contracted rates.
+                    Always verify against your cloud provider's pricing
+                    calculator before budgeting.
                 </p>
             </div>
         </div>
@@ -200,6 +205,20 @@
         text-transform: uppercase;
         letter-spacing: 1px;
         font-weight: 600;
+    }
+
+    .mock-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        border-radius: 4px;
+        padding: 2px 8px;
+        width: fit-content;
     }
 
     .amount-row {

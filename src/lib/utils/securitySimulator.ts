@@ -122,26 +122,23 @@ export interface ImportedDCF {
 // Evaluators
 // -----------------------------------------------------------------------------
 
-function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, dcf?: ImportedDCF, normalizedRules?: any[]): Vulnerability[] {
+function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, dcf?: ImportedDCF): Vulnerability[] {
     const vulns: Vulnerability[] = [];
+    if (!dcf || dcf.policies.length === 0) return vulns;
 
     const protocol = (edge.data.protocol || "any").toLowerCase();
     const port = edge.data.port || "any";
 
     const getMatchingGroups = (node: NodeData) => {
         const matchedGroups: string[] = [];
-
-        // 1. Legacy SmartGroups
-        if (dcf) {
-            for (const sg of dcf.smartGroups) {
-                const matches = (sg.matchExpressions || []).every(expr => {
-                    if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data.type === expr.value;
-                    if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data.label === expr.value;
-                    if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data.label?.includes(expr.value);
-                    return false;
-                });
-                if (matches) matchedGroups.push(sg.name);
-            }
+        for (const sg of dcf.smartGroups) {
+            const matches = (sg.matchExpressions || []).every(expr => {
+                if (expr.type === 'nodeType' && expr.operator === 'equals') return node.data.type === expr.value;
+                if (expr.type === 'nodeName' && expr.operator === 'equals') return node.data.label === expr.value;
+                if (expr.type === 'nodeName' && expr.operator === 'contains') return node.data.label?.includes(expr.value);
+                return false;
+            });
+            if (matches) matchedGroups.push(sg.name);
         }
         return matchedGroups;
     };
@@ -149,56 +146,23 @@ function evaluateDCFRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeData, 
     const srcGroups = getMatchingGroups(srcNode);
     const dstGroups = getMatchingGroups(dstNode);
 
-    // 1. Evaluate Normalized Rules (New Engine) - First Match Wins
-    if (normalizedRules && normalizedRules.length > 0) {
-        for (const rule of normalizedRules) {
-            const srcValues = rule.srcMatch?.values || [];
-            const dstValues = rule.dstMatch?.values || [];
+    for (const policy of dcf.policies) {
+        const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
+        const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
+        const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
+        const portMatch = (policy.port || "any").toLowerCase() === "any" || policy.port === port;
 
-            const srcMatch = srcValues.includes("ANY") || srcValues.includes("*") ||
-                srcValues.some((v: any) => srcGroups.includes(v) || srcNode.data.label === v || srcNode.data.type === v);
-
-            const dstMatch = dstValues.includes("ANY") || dstValues.includes("*") ||
-                dstValues.some((v: any) => dstGroups.includes(v) || dstNode.data.label === v || dstNode.data.type === v);
-
-            const protocolMatch = rule.protocol.toLowerCase() === "any" || rule.protocol.toLowerCase() === protocol;
-            const portMatch = rule.ports.length === 0 || rule.ports.includes(parseInt(port)) || port === "any" || port === "*";
-
-            if (srcMatch && dstMatch && protocolMatch && portMatch) {
-                if (rule.action === "DENY") {
-                    vulns.push({
-                        edgeId: edge.id,
-                        category: 'dcf',
-                        title: `Blocked by DCF Rule: ${rule.name}`,
-                        description: `Rule '${rule.name}' (Priority ${rule.priority}) denied traffic from ${srcNode.data.label} to ${dstNode.data.label}.`,
-                        severity: "blocked"
-                    });
-                }
-                return vulns; // deterministic: first match wins
+        if (srcMatch && dstMatch && protocolMatch && portMatch) {
+            if (policy.action === "DENY") {
+                vulns.push({
+                    edgeId: edge.id,
+                    category: 'dcf',
+                    title: `Traffic Blocked by DCF Policy: ${policy.name}`,
+                    description: `Policy '${policy.name}' dropped traffic from ${srcNode.data.label || srcNode.data.type} to ${dstNode.data.label || dstNode.data.type}.`,
+                    severity: "blocked"
+                });
             }
-        }
-    }
-
-    // 2. Fallback to Legacy Policies
-    if (dcf && dcf.policies.length > 0) {
-        for (const policy of dcf.policies) {
-            const srcMatch = policy.srcSmartGroups.includes("ANY") || policy.srcSmartGroups.some(g => srcGroups.includes(g));
-            const dstMatch = policy.dstSmartGroups.includes("ANY") || policy.dstSmartGroups.some(g => dstGroups.includes(g));
-            const protocolMatch = policy.protocol.toLowerCase() === "any" || policy.protocol.toLowerCase() === protocol;
-            const portMatch = (policy.port || "any").toLowerCase() === "any" || policy.port === port;
-
-            if (srcMatch && dstMatch && protocolMatch && portMatch) {
-                if (policy.action === "DENY") {
-                    vulns.push({
-                        edgeId: edge.id,
-                        category: 'dcf',
-                        title: `Blocked by DCF Policy: ${policy.name}`,
-                        description: `Policy '${policy.name}' dropped traffic from ${srcNode.data.label || srcNode.data.type} to ${dstNode.data.label || dstNode.data.type}.`,
-                        severity: "blocked"
-                    });
-                }
-                break;
-            }
+            break;
         }
     }
     return vulns;
@@ -343,7 +307,12 @@ function evaluateCapacityRules(srcNode: NodeData, dstNode: NodeData, edge: EdgeD
     return vulns;
 }
 
-export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedDCF?: ImportedDCF, normalizedRules?: any[]): SimulationResult {
+// Entry-point node types: BFS for attack-path tracing starts here so that
+// directionality is preserved and each edge is evaluated with the correct
+// upstream source context (instead of whichever BFS wave arrived first).
+const ENTRY_NODE_TYPES = new Set(['internet', 'onprem', 'external']);
+
+export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedDCF?: ImportedDCF): SimulationResult {
     const vulnerabilities: Vulnerability[] = [];
     const simulatedEdges = new Set<string>();
     const blockedEdges = new Set<string>();
@@ -358,7 +327,13 @@ export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedD
     let queue: { nodeId: string; path: EdgeData[] }[] = [];
     const visitedEdges = new Set<string>();
 
-    nodes.forEach((node) => queue.push({ nodeId: node.id, path: [] }));
+    // Seed only from recognised entry-point nodes so that attack paths are
+    // traced directionally and cross-edge evaluation reflects the true source.
+    // Fall back to all nodes if the diagram has no entry points (e.g. isolated
+    // internal-only diagrams) so structural checks still run.
+    const entryNodes = nodes.filter(n => ENTRY_NODE_TYPES.has(n.data.type || ''));
+    const seedNodes = entryNodes.length > 0 ? entryNodes : nodes;
+    seedNodes.forEach((node) => queue.push({ nodeId: node.id, path: [] }));
 
     while (queue.length > 0) {
         const { nodeId, path } = queue.shift()!;
@@ -372,7 +347,7 @@ export function simulateDataFlow(nodes: NodeData[], edges: EdgeData[], importedD
             const targetNode = nodes.find((n) => n.id === edge.target);
             if (!targetNode || !currentNode) continue;
 
-            const dcfVulns = evaluateDCFRules(currentNode, targetNode, edge, importedDCF, normalizedRules);
+            const dcfVulns = evaluateDCFRules(currentNode, targetNode, edge, importedDCF);
             let trafficBlocked = false;
 
             if (dcfVulns.length > 0) {

@@ -1,6 +1,23 @@
 /**
  * Terraform Infrastructure Diagram Generator
  * Generates Mermaid diagrams from Terraform HCL code
+ *
+ * ARCHITECTURE NOTE — Standalone Mode
+ * ------------------------------------
+ * The Blockly workspace (src/lib/blockly/) operates as an independent
+ * Terraform-block editor that generates HCL and Mermaid diagrams from
+ * structured block definitions.  It is intentionally decoupled from the
+ * SvelteFlow canvas in src/routes/+page.svelte.
+ *
+ * There is NO bidirectional sync between the two modes:
+ *   • Canvas → Blockly:  use "Generate Manifests" to export HCL, then paste
+ *                        it into the Terraform Blocks view for visualisation.
+ *   • Blockly → Canvas:  not supported; the block schema (resource-schema.js)
+ *                        and canvas node schema differ intentionally.
+ *
+ * If bidirectional sync is added in the future it should go through a shared
+ * canonical intermediate representation (e.g. the JSON export format used by
+ * exportLayout / importLayout in TopNav.svelte).
  */
 
 // @ts-ignore

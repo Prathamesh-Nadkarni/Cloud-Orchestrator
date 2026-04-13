@@ -39,3 +39,10 @@ vite.config.ts.timestamp-*
 *.ntvs*
 *.njsproj
 *.sln
+
+# Debug / scratch output files — never commit these
+output.txt
+schema_error.txt
+test_output.txt
+.tsc_output.txt
+tsc_output.txt

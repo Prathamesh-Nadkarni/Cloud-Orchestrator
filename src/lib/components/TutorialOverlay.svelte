@@ -21,6 +21,7 @@
 
     let activeTab = $state<"guide" | "samples">("guide");
     let pinpointMode = $state(false);
+    let expandedCategories = $state(new Set<string>(["Infrastructure Basics", "Multi-Cloud & Aviatrix", "Security Products"]));
 
     $effect(() => {
         // Reset pinpoint mode when closed
@@ -29,50 +30,117 @@
         }
     });
 
-    const samples = [
+    function toggleCategory(category: string) {
+        if (expandedCategories.has(category)) {
+            expandedCategories.delete(category);
+        } else {
+            expandedCategories.add(category);
+        }
+        expandedCategories = new Set(expandedCategories);
+    }
+
+    const sampleCategories = [
         {
-            id: "multi-tier-aws",
-            title: "3-Tier AWS Web App",
-            desc: "Classic web → app → database architecture with VPC, subnets, and RDS replicas.",
-            tags: ["AWS", "VPC", "RDS"],
+            category: "Infrastructure Basics",
+            samples: [
+                {
+                    id: "multi-tier-aws",
+                    title: "3-Tier AWS Web App",
+                    desc: "Classic web → app → database architecture with VPC, subnets, and RDS replicas.",
+                    tags: ["AWS", "VPC", "RDS"],
+                },
+                {
+                    id: "azure-kubernetes",
+                    title: "Azure AKS Cluster",
+                    desc: "Production AKS cluster deployed inside an Azure VNet with SQL Server backend.",
+                    tags: ["Azure", "Kubernetes", "VNet"],
+                },
+            ]
         },
         {
-            id: "azure-kubernetes",
-            title: "Azure AKS Cluster",
-            desc: "Production AKS cluster deployed inside an Azure VNet with SQL Server backend.",
-            tags: ["Azure", "Kubernetes", "VNet"],
+            category: "Multi-Cloud & Aviatrix",
+            samples: [
+                {
+                    id: "security/multicloud-without-aviatrix",
+                    title: "Multi-Cloud WITHOUT Aviatrix ❌",
+                    desc: "Shows blocked cross-cloud connectivity when trying to connect AWS and Azure directly.",
+                    tags: ["Multi-Cloud", "Problem"],
+                },
+                {
+                    id: "security/multicloud-with-aviatrix",
+                    title: "Multi-Cloud WITH Aviatrix ✓",
+                    desc: "Same setup but with Aviatrix Transit backbone providing encrypted cross-cloud connectivity.",
+                    tags: ["Multi-Cloud", "Aviatrix", "Secured"],
+                },
+                {
+                    id: "cross-csp-example",
+                    title: "Cross-CSP with Aviatrix",
+                    desc: "AWS VPC ↔ Aviatrix Transit ↔ Azure VNet multi-cloud backbone with EKS.",
+                    tags: ["AWS", "Azure", "Aviatrix"],
+                },
+                {
+                    id: "aviatrix-multi-cloud",
+                    title: "Global Multi-Cloud Transit",
+                    desc: "Three CSPs (AWS, Azure, GCP) connected via Aviatrix backbone with on-prem datacenter.",
+                    tags: ["AWS", "Azure", "GCP", "Aviatrix"],
+                },
+            ]
         },
         {
-            id: "cross-csp-example",
-            title: "Cross-CSP with Aviatrix",
-            desc: "AWS VPC ↔ Aviatrix Transit ↔ Azure VNet multi-cloud backbone with EKS.",
-            tags: ["AWS", "Azure", "Aviatrix"],
+            category: "Security Products",
+            samples: [
+                {
+                    id: "security/aws-with-security-stack",
+                    title: "AWS + Security Stack",
+                    desc: "AWS EKS cluster protected by Prisma Cloud, CrowdStrike Falcon, and Datadog monitoring.",
+                    tags: ["AWS", "Prisma", "CrowdStrike", "Datadog"],
+                },
+                {
+                    id: "security/azure-identity-secrets",
+                    title: "Azure + Identity & Secrets",
+                    desc: "Azure VMs secured with Okta SSO/MFA, Defender for Cloud, and HashiCorp Vault secrets.",
+                    tags: ["Azure", "Okta", "Defender", "Vault"],
+                },
+                {
+                    id: "security/multicloud-aviatrix-full-security",
+                    title: "Multi-Cloud Full Security Stack",
+                    desc: "Complete security: Aviatrix FireNet + Cloudflare One + Wiz + Rubrik backup across AWS/Azure.",
+                    tags: ["Multi-Cloud", "Aviatrix", "Cloudflare", "Wiz", "Rubrik"],
+                },
+                {
+                    id: "security/kubernetes-observability-comparison",
+                    title: "K8s: Cluster-Level vs Node-Level",
+                    desc: "Shows difference: Kubehound analyzes ENTIRE cluster, APM agents run per-node as DaemonSet.",
+                    tags: ["Kubernetes", "Datadog", "Placement"],
+                },
+            ]
         },
         {
-            id: "aviatrix-multi-cloud",
-            title: "Global Multi-Cloud Transit",
-            desc: "Three CSPs (AWS, Azure, GCP) connected via Aviatrix backbone with on-prem datacenter.",
-            tags: ["AWS", "Azure", "GCP", "Aviatrix"],
-        },
-        {
-            id: "unsafe-ai",
-            title: "Unsecured AI Gateway",
-            desc: "Public AI Gateway bypassing authentication to access sensitive Vector DB and features.",
-            tags: ["AI", "Vulnerability", "Internet"],
-        },
-        {
-            id: "protected-rag-dcf",
-            title: "Protected AI Workload (DCF)",
-            desc: "The same AI scenario secured with deep Aviatrix DCF policies and redaction toggles.",
-            tags: ["AI", "DCF", "Secured"],
-        },
-        {
-            id: "multi-cloud-ai-capacity",
-            title: "Multi-Cloud Capacity Checks",
-            desc: "Highlights bandwidth, latency SLA, and routing bottlenecks across AWS and Azure AI workflows.",
-            tags: ["Capacity", "MultiCloud", "Egress"],
-        },
+            category: "AI Workloads",
+            samples: [
+                {
+                    id: "unsafe-ai",
+                    title: "Unsecured AI Gateway ⚠️",
+                    desc: "Public AI Gateway bypassing authentication to access sensitive Vector DB and features.",
+                    tags: ["AI", "Vulnerability", "Internet"],
+                },
+                {
+                    id: "protected-rag-dcf",
+                    title: "Protected AI Workload (DCF) ✓",
+                    desc: "The same AI scenario secured with deep Aviatrix DCF policies and redaction toggles.",
+                    tags: ["AI", "DCF", "Secured"],
+                },
+                {
+                    id: "multi-cloud-ai-capacity",
+                    title: "Multi-Cloud Capacity Checks",
+                    desc: "Highlights bandwidth, latency SLA, and routing bottlenecks across AWS and Azure AI workflows.",
+                    tags: ["Capacity", "MultiCloud", "Egress"],
+                },
+            ]
+        }
     ];
+
+    const samples = sampleCategories.flatMap(cat => cat.samples);
 </script>
 
 {#if isOpen}
@@ -143,8 +211,11 @@
             >
                 <!-- Header -->
                 <div class="modal-header">
-                    <h2>Getting Started</h2>
-                    <button class="close-btn" onclick={onClose} title="Close">
+                    <div>
+                      <h2>Getting Started</h2>
+                      <p class="header-subtitle">Learn how to design cloud architectures visually</p>
+                    </div>
+                    <button class="close-btn" onclick={onClose} title="Close (Esc)">
                         <X size={18} />
                     </button>
                 </div>
@@ -265,25 +336,50 @@
                             Load a pre-built architecture to explore. This will
                             replace your current canvas.
                         </p>
-                        {#each samples as sample}
-                            <button
-                                class="sample-card"
-                                onclick={() => {
-                                    onLoadSample(sample.id);
-                                    onClose();
-                                }}
-                            >
-                                <div class="sample-info">
-                                    <h3>{sample.title}</h3>
-                                    <p>{sample.desc}</p>
-                                    <div class="sample-tags">
-                                        {#each sample.tags as tag}
-                                            <span class="tag">{tag}</span>
+                        {#each sampleCategories as sampleCategory}
+                            <div class="sample-category">
+                                <button 
+                                    class="category-header"
+                                    onclick={() => toggleCategory(sampleCategory.category)}
+                                >
+                                    <span class="category-title">{sampleCategory.category}</span>
+                                    <span class="category-count">{sampleCategory.samples.length}</span>
+                                    {#if expandedCategories.has(sampleCategory.category)}
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M4 6l4 4 4-4z"/>
+                                        </svg>
+                                    {:else}
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M6 4l4 4-4 4z"/>
+                                        </svg>
+                                    {/if}
+                                </button>
+
+                                {#if expandedCategories.has(sampleCategory.category)}
+                                    <div class="category-samples">
+                                        {#each sampleCategory.samples as sample}
+                                            <button
+                                                class="sample-card"
+                                                onclick={() => {
+                                                    onLoadSample(sample.id);
+                                                    onClose();
+                                                }}
+                                            >
+                                                <div class="sample-info">
+                                                    <h3>{sample.title}</h3>
+                                                    <p>{sample.desc}</p>
+                                                    <div class="sample-tags">
+                                                        {#each sample.tags as tag}
+                                                            <span class="tag">{tag}</span>
+                                                        {/each}
+                                                    </div>
+                                                </div>
+                                                <ArrowRight size={18} />
+                                            </button>
                                         {/each}
                                     </div>
-                                </div>
-                                <ArrowRight size={18} />
-                            </button>
+                                {/if}
+                            </div>
                         {/each}
                     </div>
                 {/if}
@@ -316,7 +412,7 @@
 
     .modal-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         padding: 20px 24px 12px;
     }
@@ -325,6 +421,12 @@
         margin: 0;
         font-size: 1.25rem;
         color: var(--text-main);
+    }
+
+    .header-subtitle {
+        margin: 4px 0 0 0;
+        font-size: 0.8rem;
+        color: var(--text-muted);
     }
 
     .close-btn {
@@ -416,7 +518,50 @@
     .samples-intro {
         font-size: 0.8rem;
         color: var(--text-muted);
-        margin: 0 0 12px;
+        margin: 0 0 16px;
+    }
+
+    .sample-category {
+        margin-bottom: 12px;
+    }
+
+    .category-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: rgba(139, 92, 246, 0.08);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: var(--text-main);
+    }
+
+    .category-header:hover {
+        background: rgba(139, 92, 246, 0.15);
+        border-color: var(--accent-primary);
+    }
+
+    .category-title {
+        flex: 1;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .category-count {
+        font-size: 0.7rem;
+        background: rgba(139, 92, 246, 0.2);
+        color: var(--accent-primary);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+
+    .category-samples {
+        padding: 8px 0 0 0;
     }
 
     .sample-card {
@@ -438,6 +583,7 @@
         background: rgba(59, 130, 246, 0.08);
         border-color: var(--accent-primary);
         color: var(--text-main);
+        transform: translateX(4px);
     }
 
     .sample-info {

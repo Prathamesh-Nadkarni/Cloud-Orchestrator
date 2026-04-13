@@ -14,9 +14,12 @@
     Cpu,
     Blocks,
     Network,
+    ShieldCheck,
   } from "lucide-svelte";
+  import { globalState } from "$lib/client/state.svelte";
 
-  let { data, isConnectable, selected, width, height } = $props<{
+  let { id, data, isConnectable, selected, width, height } = $props<{
+    id: string;
     data: any;
     isConnectable: boolean;
     selected: boolean;
@@ -73,6 +76,10 @@
     return 0;
   });
 
+  let isDropTarget = $derived(
+    globalState.dragContext !== null && globalState.validDropTargets.includes(id)
+  );
+
   let Icon = $derived(getIcon(data.type));
 </script>
 
@@ -81,6 +88,7 @@
     ? 'container-node'
     : 'resource-node'} {data.isolated ? 'isolated' : ''}"
   class:selected
+  class:drop-target={isDropTarget}
   data-level={sizingLevel}
   style="--node-accent: var(--accent-{data.provider}); {width
     ? `width: ${width}px;`
@@ -147,6 +155,12 @@
           <span class="key">Size:</span> <span class="val">{data.size}</span>
         </div>
       {/if}
+    </div>
+  {/if}
+
+  {#if globalState.dcfModeEnabled}
+    <div class="dcf-indicator" title="DCF Policy Enforcement Active">
+      <ShieldCheck size={12} />
     </div>
   {/if}
 
@@ -319,5 +333,61 @@
     width: 12px;
     height: 12px;
     z-index: 100;
+  }
+
+  .dcf-indicator {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    background: #10b981;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    z-index: 60;
+    border: 2px solid var(--bg-dark);
+  }
+
+  /* ── Drop-target highlight during drag ── */
+  .drop-target {
+    border-color: #22d3ee !important;
+    border-style: dashed !important;
+    box-shadow:
+      0 0 0 3px rgba(34, 211, 238, 0.25),
+      0 0 24px rgba(34, 211, 238, 0.15),
+      inset 0 0 20px rgba(34, 211, 238, 0.04) !important;
+    animation: drop-zone-pulse 1.5s ease-in-out infinite;
+  }
+
+  .drop-target::after {
+    content: "Drop here";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: rgba(34, 211, 238, 0.7);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  @keyframes drop-zone-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 3px rgba(34, 211, 238, 0.25),
+        0 0 24px rgba(34, 211, 238, 0.15);
+    }
+    50% {
+      box-shadow:
+        0 0 0 6px rgba(34, 211, 238, 0.15),
+        0 0 40px rgba(34, 211, 238, 0.25);
+    }
   }
 </style>

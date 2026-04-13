@@ -1,0 +1,172 @@
+{
+  "nodes": [
+    {
+      "id": "aws-vpc-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 250 },
+      "data": {
+        "type": "vpc",
+        "provider": "aws",
+        "label": "Production VPC",
+        "cidr": "10.0.0.0/16"
+      },
+      "measured": { "width": 800, "height": 650 }
+    },
+    {
+      "id": "aws-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "subnet",
+        "provider": "aws",
+        "label": "App Subnet",
+        "cidr": "10.0.1.0/24"
+      },
+      "measured": { "width": 350, "height": 400 }
+    },
+    {
+      "id": "aws-eks-1",
+      "type": "cloud",
+      "position": { "x": 40, "y": 100 },
+      "parentId": "aws-subnet-1",
+      "data": {
+        "type": "kubernetes",
+        "provider": "aws",
+        "label": "EKS Production",
+        "count": 3
+      },
+      "measured": { "width": 280, "height": 250 }
+    },
+    {
+      "id": "crowdstrike-1",
+      "type": "vendor",
+      "position": { "x": 420, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "CrowdStrike",
+        "label": "Falcon Endpoint",
+        "category": "Endpoint",
+        "color": "#E01F3D",
+        "integrationMode": "agent_deployment",
+        "hierarchy": "inside_vpc",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": true,
+          "network_access": true,
+          "compute_access": true
+        },
+        "configuration": {
+          "agentDeployed": true,
+          "preventionPolicy": "enabled",
+          "protectedEndpoints": ["aws-eks-1"]
+        },
+        "description": "Falcon agent installed on compute instances inside this VPC",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "datadog-1",
+      "type": "vendor",
+      "position": { "x": 420, "y": 260 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Datadog",
+        "label": "Infrastructure Monitoring",
+        "category": "Observability",
+        "color": "#632CA6",
+        "integrationMode": "agent_telemetry",
+        "hierarchy": "inside_vpc",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": true,
+          "network_access": true,
+          "metrics_endpoint": true
+        },
+        "configuration": {
+          "apiKey": "vault://datadog/api-key",
+          "agentDeployed": true,
+          "deploymentType": "daemonset",
+          "connectedAccounts": ["aws"]
+        },
+        "description": "Datadog agent runs as DaemonSet on nodes inside this VPC",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "prisma-cloud-1",
+      "type": "vendor",
+      "position": { "x": 1000, "y": 300 },
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Palo Alto Networks",
+        "label": "Prisma Cloud",
+        "category": "CNAPP",
+        "color": "#FA582D",
+        "integrationMode": "api_connector",
+        "hierarchy": "external",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws"],
+          "agent_deployment": false,
+          "network_access": true
+        },
+        "configuration": {
+          "apiKey": "vault://prisma/api-key",
+          "connectedAccounts": ["aws"]
+        },
+        "description": "SaaS CNAPP — scans VPC resources via cloud APIs (external)",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "internet-1",
+      "type": "cloud",
+      "position": { "x": 350, "y": 50 },
+      "data": {
+        "type": "internet",
+        "provider": "external",
+        "label": "Internet"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-prisma-scan",
+      "source": "prisma-cloud-1",
+      "target": "aws-vpc-1",
+      "type": "default",
+      "animated": true,
+      "label": "API Scan",
+      "style": "stroke: #FA582D; stroke-width: 2; stroke-dasharray: 5,5;",
+      "data": { "protocol": "https", "port": "443", "note": "External SaaS scanning VPC via cloud APIs" }
+    },
+    {
+      "id": "edge-falcon-protect",
+      "source": "crowdstrike-1",
+      "target": "aws-eks-1",
+      "type": "default",
+      "animated": true,
+      "label": "Agent Protection",
+      "style": "stroke: #E01F3D; stroke-width: 2;",
+      "data": { "protocol": "agent", "port": "443", "note": "Falcon agent on EKS nodes inside VPC" }
+    },
+    {
+      "id": "edge-datadog-monitor",
+      "source": "datadog-1",
+      "target": "aws-eks-1",
+      "type": "default",
+      "animated": true,
+      "label": "Telemetry",
+      "style": "stroke: #632CA6; stroke-width: 2;",
+      "data": { "protocol": "https", "port": "443", "note": "DaemonSet collecting metrics from EKS nodes" }
+    }
+  ]
+}

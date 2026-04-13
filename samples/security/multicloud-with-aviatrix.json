@@ -1,0 +1,176 @@
+{
+  "nodes": [
+    {
+      "id": "aws-vpc-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 250 },
+      "data": {
+        "type": "vpc",
+        "provider": "aws",
+        "label": "AWS Production VPC",
+        "cidr": "10.0.0.0/16",
+        "region": "us-east-1"
+      },
+      "measured": { "width": 600, "height": 450 }
+    },
+    {
+      "id": "azure-vnet-1",
+      "type": "cloud",
+      "position": { "x": 1000, "y": 250 },
+      "data": {
+        "type": "vnet",
+        "provider": "azure",
+        "label": "Azure Production VNet",
+        "cidr": "10.1.0.0/16",
+        "region": "eastus"
+      },
+      "measured": { "width": 600, "height": 450 }
+    },
+    {
+      "id": "avx-transit-aws",
+      "type": "cloud",
+      "position": { "x": 400, "y": 50 },
+      "data": {
+        "type": "transit",
+        "provider": "aviatrix",
+        "label": "AWS Transit Gateway",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "id": "avx-transit-azure",
+      "type": "cloud",
+      "position": { "x": 900, "y": 50 },
+      "data": {
+        "type": "transit",
+        "provider": "aviatrix",
+        "label": "Azure Transit Gateway",
+        "region": "eastus"
+      }
+    },
+    {
+      "id": "avx-spoke-aws",
+      "type": "cloud",
+      "position": { "x": 250, "y": 300 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "spoke",
+        "provider": "aviatrix",
+        "label": "AWS Spoke GW"
+      }
+    },
+    {
+      "id": "avx-spoke-azure",
+      "type": "cloud",
+      "position": { "x": 250, "y": 300 },
+      "parentId": "azure-vnet-1",
+      "data": {
+        "type": "spoke",
+        "provider": "aviatrix",
+        "label": "Azure Spoke GW"
+      }
+    },
+    {
+      "id": "aws-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "subnet",
+        "provider": "aws",
+        "label": "App Subnet",
+        "cidr": "10.0.1.0/24"
+      },
+      "measured": { "width": 250, "height": 300 }
+    },
+    {
+      "id": "azure-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "azure-vnet-1",
+      "data": {
+        "type": "subnet",
+        "provider": "azure",
+        "label": "App Subnet",
+        "cidr": "10.1.1.0/24"
+      },
+      "measured": { "width": 250, "height": 300 }
+    },
+    {
+      "id": "aws-ec2-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 100 },
+      "parentId": "aws-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "aws",
+        "label": "Web Server",
+        "size": "t3.medium"
+      }
+    },
+    {
+      "id": "azure-vm-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 100 },
+      "parentId": "azure-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "azure",
+        "label": "API Server",
+        "size": "Standard_D2s_v3"
+      }
+    },
+    {
+      "id": "internet-1",
+      "type": "cloud",
+      "position": { "x": 650, "y": -200 },
+      "data": {
+        "type": "internet",
+        "provider": "external",
+        "label": "Internet"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-transit",
+      "source": "avx-transit-aws",
+      "target": "avx-transit-azure",
+      "type": "default",
+      "animated": true,
+      "label": "Aviatrix Backbone ✓",
+      "style": "stroke: #10b981; stroke-width: 3;",
+      "data": { "protocol": "encrypted", "port": "*" }
+    },
+    {
+      "id": "edge-spoke-aws",
+      "source": "avx-spoke-aws",
+      "target": "avx-transit-aws",
+      "type": "default",
+      "animated": true,
+      "label": "Spoke-Transit",
+      "style": "stroke: #10b981; stroke-width: 2;",
+      "data": { "protocol": "encrypted", "port": "*" }
+    },
+    {
+      "id": "edge-spoke-azure",
+      "source": "avx-spoke-azure",
+      "target": "avx-transit-azure",
+      "type": "default",
+      "animated": true,
+      "label": "Spoke-Transit",
+      "style": "stroke: #10b981; stroke-width: 2;",
+      "data": { "protocol": "encrypted", "port": "*" }
+    },
+    {
+      "id": "edge-internet",
+      "source": "internet-1",
+      "target": "avx-transit-aws",
+      "type": "default",
+      "animated": true,
+      "label": "HTTPS:443",
+      "style": "stroke: #3b82f6; stroke-width: 2;",
+      "data": { "protocol": "https", "port": "443" }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 <script>
-  import { X } from "lucide-svelte";
+  import { X, Shield, Plus, Trash2, Edit2, ShieldAlert } from "lucide-svelte";
+  import { globalState } from "$lib/client/state.svelte";
+  import { onMount } from "svelte";
 
   let {
     selectedNode = $bindable(),
@@ -87,6 +89,88 @@
         return e;
       });
       selectedEdge.data[key] = value;
+    }
+  }
+
+  let dcfRules = $state([]);
+  let loadingRules = $state(false);
+
+  $effect(() => {
+    if (selectedNode && globalState.dcfModeEnabled) {
+      fetchRulesForNode(selectedNode);
+    }
+  });
+
+  async function fetchRulesForNode(node) {
+    if (!globalState.currentDiagramId) return;
+    loadingRules = true;
+    try {
+      const res = await fetch(
+        `/api/security/policies/${globalState.currentDiagramId}`,
+      );
+      const data = await res.json();
+
+      const nodeName = node.data.name || node.data.label;
+      const nodeType = node.data.type;
+
+      dcfRules = data.sortedRules.filter((rule) => {
+        const srcMatch = rule.srcMatch.values.some(
+          (v) => v === "ANY" || v === "*" || v === nodeName || v === nodeType,
+        );
+        const dstMatch = rule.dstMatch.values.some(
+          (v) => v === "ANY" || v === "*" || v === nodeName || v === nodeType,
+        );
+        return srcMatch || dstMatch;
+      });
+    } catch (e) {
+      console.error("Failed to fetch node rules", e);
+    } finally {
+      loadingRules = false;
+    }
+  }
+
+  async function deleteRule(ruleId) {
+    if (!confirm("Are you sure you want to delete this firewall rule?")) return;
+    try {
+      const res = await fetch(
+        `/api/security/policies/${globalState.currentDiagramId}/rules/${ruleId}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (res.ok) {
+        dcfRules = dcfRules.filter((r) => r.id !== ruleId);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function quickAddRule(direction) {
+    const nodeName = selectedNode.data.name || selectedNode.data.label;
+    const newRule = {
+      name: `${direction === "ingress" ? "Allow Inbound to" : "Allow Outbound from"} ${nodeName}`,
+      priority: 1000,
+      layer: "NETWORK",
+      action: "ALLOW",
+      protocol: "ANY",
+      ports: [],
+      srcMatch: { values: [direction === "ingress" ? "ANY" : nodeName] },
+      dstMatch: { values: [direction === "ingress" ? nodeName : "ANY"] },
+    };
+
+    try {
+      const res = await fetch(
+        `/api/security/policies/${globalState.currentDiagramId}/rules`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newRule),
+        },
+      );
+      if (res.ok) fetchRulesForNode(selectedNode);
+    } catch (e) {
+      console.error(e);
     }
   }
 </script>
@@ -326,6 +410,65 @@
             <label for="ha">Enable High Availability (HA)</label>
           </div>
         {/if}
+      {/if}
+
+      <!-- Security Policies Section (DCF) -->
+      {#if globalState.dcfModeEnabled}
+        <div class="security-section">
+          <div class="section-header">
+            <div class="header-title">
+              <ShieldAlert size={16} color="var(--accent-avx)" />
+              <span>SECURITY POLICIES</span>
+            </div>
+            <div class="header-actions">
+              <button
+                class="add-rule-btn"
+                onclick={() => quickAddRule("ingress")}
+                title="Add Ingress Rule"
+              >
+                <Plus size={14} /> In
+              </button>
+              <button
+                class="add-rule-btn"
+                onclick={() => quickAddRule("egress")}
+                title="Add Egress Rule"
+              >
+                <Plus size={14} /> Out
+              </button>
+            </div>
+          </div>
+
+          {#if loadingRules}
+            <div class="rules-loading">Loading policies...</div>
+          {:else if dcfRules.length > 0}
+            <div class="rules-list">
+              {#each dcfRules as rule}
+                <div class="rule-card" class:deny={rule.action === "DENY"}>
+                  <div class="rule-top">
+                    <span class="rule-priority">#{rule.priority}</span>
+                    <span
+                      class="rule-action"
+                      class:allow={rule.action === "ALLOW"}>{rule.action}</span
+                    >
+                    <div class="rule-ops">
+                      <button onclick={() => deleteRule(rule.id)}
+                        ><Trash2 size={12} /></button
+                      >
+                    </div>
+                  </div>
+                  <div class="rule-name">{rule.name}</div>
+                  <div class="rule-flow">
+                    <span>{rule.srcMatch.values.join(", ")}</span>
+                    <ChevronRight size={10} />
+                    <span>{rule.dstMatch.values.join(", ")}</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="rules-empty">No policies targeting this resource.</div>
+          {/if}
+        </div>
       {/if}
 
       <!-- AI Workload Metadata -->
@@ -765,5 +908,147 @@
     color: var(--text-muted);
     font-size: 0.9rem;
     line-height: 1.5;
+  }
+
+  /* DCF Rules Section Styles */
+  .security-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .add-rule-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: var(--text-main);
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .add-rule-btn:hover {
+    background: var(--bg-panel-hover);
+    border-color: var(--accent-avx);
+  }
+
+  .rules-loading,
+  .rules-empty {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+  }
+
+  .rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rule-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .rule-card.deny {
+    border-left: 3px solid #ea580c;
+  }
+
+  .rule-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rule-priority {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .rule-action {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #451a03;
+    color: #fb923c;
+  }
+
+  .rule-action.allow {
+    background: #022c22;
+    color: #4ade80;
+  }
+
+  .rule-ops {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+
+  .rule-ops button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .rule-ops button:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+  }
+
+  .rule-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rule-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
   }
 </style>

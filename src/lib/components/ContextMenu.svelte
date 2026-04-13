@@ -6,10 +6,10 @@
     position,
     node,
     onClose,
-    onEdit,
-    onDetach,
-    onDelete,
-    onAttach,
+    onEdit = () => {},
+    onDetach = () => {},
+    onDelete = () => {},
+    onAttach = () => {},
   } = $props();
 </script>
 

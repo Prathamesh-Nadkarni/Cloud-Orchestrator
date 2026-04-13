@@ -1,0 +1,269 @@
+{
+  "nodes": [
+    {
+      "id": "aws-vpc-1",
+      "type": "cloud",
+      "position": { "x": 50, "y": 400 },
+      "data": {
+        "type": "vpc",
+        "provider": "aws",
+        "label": "AWS VPC",
+        "cidr": "10.0.0.0/16"
+      },
+      "measured": { "width": 550, "height": 500 }
+    },
+    {
+      "id": "aws-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "subnet",
+        "provider": "aws",
+        "label": "App Subnet",
+        "cidr": "10.0.1.0/24"
+      },
+      "measured": { "width": 250, "height": 280 }
+    },
+    {
+      "id": "aws-ec2-1",
+      "type": "cloud",
+      "position": { "x": 40, "y": 80 },
+      "parentId": "aws-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "aws",
+        "label": "Web Server",
+        "size": "t3.large"
+      }
+    },
+    {
+      "id": "cloudflare-1",
+      "type": "vendor",
+      "position": { "x": 310, "y": 80 },
+      "parentId": "aws-vpc-1",
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Cloudflare",
+        "label": "Cloudflare Tunnel",
+        "category": "SASE",
+        "color": "#F38020",
+        "integrationMode": "edge_security",
+        "hierarchy": "inside_vpc",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": [],
+          "agent_deployment": false,
+          "network_access": true,
+          "dns_configuration": true
+        },
+        "configuration": {
+          "zeroTrustPolicies": ["allow-authenticated"],
+          "gatewayDNS": true,
+          "tunnelMode": true
+        },
+        "description": "Cloudflare Tunnel connector inside VPC — proxies traffic to the web server",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "azure-vnet-1",
+      "type": "cloud",
+      "position": { "x": 750, "y": 400 },
+      "data": {
+        "type": "vnet",
+        "provider": "azure",
+        "label": "Azure VNet",
+        "cidr": "10.1.0.0/16"
+      },
+      "measured": { "width": 500, "height": 400 }
+    },
+    {
+      "id": "azure-subnet-1",
+      "type": "cloud",
+      "position": { "x": 30, "y": 80 },
+      "parentId": "azure-vnet-1",
+      "data": {
+        "type": "subnet",
+        "provider": "azure",
+        "label": "App Subnet",
+        "cidr": "10.1.1.0/24"
+      },
+      "measured": { "width": 250, "height": 250 }
+    },
+    {
+      "id": "azure-vm-1",
+      "type": "cloud",
+      "position": { "x": 40, "y": 80 },
+      "parentId": "azure-subnet-1",
+      "data": {
+        "type": "compute",
+        "provider": "azure",
+        "label": "API Server",
+        "size": "Standard_D2s_v3"
+      }
+    },
+    {
+      "id": "avx-transit-aws",
+      "type": "cloud",
+      "position": { "x": 250, "y": 200 },
+      "data": {
+        "type": "transit",
+        "provider": "aviatrix",
+        "label": "AWS Transit GW"
+      }
+    },
+    {
+      "id": "avx-transit-azure",
+      "type": "cloud",
+      "position": { "x": 850, "y": 200 },
+      "data": {
+        "type": "transit",
+        "provider": "aviatrix",
+        "label": "Azure Transit GW"
+      }
+    },
+    {
+      "id": "avx-firenet",
+      "type": "cloud",
+      "position": { "x": 530, "y": 100 },
+      "data": {
+        "type": "firewall",
+        "provider": "aviatrix",
+        "label": "Aviatrix FireNet"
+      }
+    },
+    {
+      "id": "wiz-1",
+      "type": "vendor",
+      "position": { "x": 1350, "y": 300 },
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Wiz",
+        "label": "Wiz Security",
+        "category": "CNAPP",
+        "color": "#6B4FBB",
+        "integrationMode": "api_connector",
+        "hierarchy": "external",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws", "azure"],
+          "agent_deployment": false,
+          "network_access": true,
+          "scan_permissions": true
+        },
+        "configuration": {
+          "connectedAccounts": ["aws", "azure"],
+          "snapshotEncryption": true,
+          "attackPathAnalysis": true
+        },
+        "description": "SaaS CNAPP — agentless scanning via APIs (external, not in any VPC)",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    },
+    {
+      "id": "rubrik-1",
+      "type": "vendor",
+      "position": { "x": 1350, "y": 550 },
+      "data": {
+        "type": "vendor-integration",
+        "vendor": "Rubrik",
+        "label": "Security Cloud",
+        "category": "Resilience",
+        "color": "#00B388",
+        "integrationMode": "backup_recovery",
+        "hierarchy": "external",
+        "requirements": {
+          "api_key": true,
+          "cloud_accounts": ["aws", "azure"],
+          "agent_deployment": false,
+          "network_access": true,
+          "storage_access": true,
+          "snapshot_permissions": true
+        },
+        "configuration": {
+          "immutableBackups": true,
+          "backupEncryption": true,
+          "anomalyDetection": true
+        },
+        "description": "SaaS backup service — external block connecting to data stores via API",
+        "isMarketplace": true,
+        "showRequirements": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-transit-backbone",
+      "source": "avx-transit-aws",
+      "target": "avx-transit-azure",
+      "type": "default",
+      "animated": true,
+      "label": "Encrypted Transit",
+      "style": "stroke: #10b981; stroke-width: 3;",
+      "data": { "protocol": "encrypted", "port": "*" }
+    },
+    {
+      "id": "edge-firenet-aws",
+      "source": "avx-firenet",
+      "target": "avx-transit-aws",
+      "type": "default",
+      "animated": true,
+      "label": "Inspection",
+      "style": "stroke: #ea580c; stroke-width: 2;",
+      "data": { "protocol": "inspection", "port": "*" }
+    },
+    {
+      "id": "edge-firenet-azure",
+      "source": "avx-firenet",
+      "target": "avx-transit-azure",
+      "type": "default",
+      "animated": true,
+      "label": "Inspection",
+      "style": "stroke: #ea580c; stroke-width: 2;",
+      "data": { "protocol": "inspection", "port": "*" }
+    },
+    {
+      "id": "edge-cf-webserver",
+      "source": "cloudflare-1",
+      "target": "aws-ec2-1",
+      "type": "default",
+      "animated": true,
+      "label": "Tunnel → Service",
+      "style": "stroke: #F38020; stroke-width: 2;",
+      "data": { "protocol": "https", "port": "443", "note": "Cloudflare tunnel proxying traffic to web server inside VPC" }
+    },
+    {
+      "id": "edge-wiz-scan-aws",
+      "source": "wiz-1",
+      "target": "aws-vpc-1",
+      "type": "default",
+      "animated": true,
+      "label": "Agentless Scan",
+      "style": "stroke: #6B4FBB; stroke-width: 2; stroke-dasharray: 5,5;",
+      "data": { "protocol": "api", "port": "443" }
+    },
+    {
+      "id": "edge-wiz-scan-azure",
+      "source": "wiz-1",
+      "target": "azure-vnet-1",
+      "type": "default",
+      "animated": true,
+      "label": "Agentless Scan",
+      "style": "stroke: #6B4FBB; stroke-width: 2; stroke-dasharray: 5,5;",
+      "data": { "protocol": "api", "port": "443" }
+    },
+    {
+      "id": "edge-rubrik-backup",
+      "source": "rubrik-1",
+      "target": "azure-vnet-1",
+      "type": "default",
+      "animated": true,
+      "label": "Immutable Backup",
+      "style": "stroke: #00B388; stroke-width: 2;",
+      "data": { "protocol": "https", "port": "443" }
+    }
+  ]
+}
